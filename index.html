@@ -2,7 +2,12 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1a30" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
   <meta name="description" content="Pickleball Hachihi Mở Rộng 2026 - Giải đấu chào mừng 17 năm Hoàng Mai. Kết nối đam mê, bứt phá giới hạn với 3D Arena, luật Kitchen & Two-Bounce chuẩn quốc tế." />
   <meta property="og:title" content="Pickleball – Hachihi" />
   <meta property="og:description" content="Pickleball Hachihi Mở Rộng 2026 - Giải đấu chào mừng 17 năm Hoàng Mai. Kết nối đam mê, bứt phá giới hạn với 3D Arena, luật Kitchen & Two-Bounce chuẩn quốc tế." />
@@ -20,6 +25,7 @@
     })();
   </script>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./mobile.css" />
 </head>
 <body>
   <div id="root" class="hidden" aria-hidden="true"></div>
@@ -797,27 +803,30 @@
             
             <div class="controls-map-grid">
               <div class="control-box">
-                <div class="control-badge">CHUỘT / CẢM ỨNG</div>
-                <div class="control-key-title">Di Chuột &amp; Vung Vợt</div>
-                <div class="control-desc">Di chuyển chuột theo hướng bóng để căn góc tiếp xúc; bấm chuột trái hoặc vung tay để đánh bóng.</div>
+                <div class="control-badge">WASD / MŨI TÊN</div>
+                <div class="control-key-title">Chạy &amp; Ngắm Hướng Trái / Phải</div>
+                <div class="control-desc">Giữ A/D (←/→) để chạy và ngắm: giữ trái lúc đánh bóng đi chéo trái, giữ phải bóng đi chéo phải. W tiến lên lưới, S lùi ra sau.</div>
               </div>
 
               <div class="control-box">
-                <div class="control-badge">PHÍM SPACE</div>
-                <div class="control-key-title">Giao Bóng / Đánh Bóng</div>
-                <div class="control-desc">Tung bóng giao dưới eo hoặc vung vợt đánh trả tức thì khi bóng vào tầm.</div>
+                <div class="control-badge">SPACE / CLICK</div>
+                <div class="control-key-title">Đánh Thông Minh</div>
+                <div class="control-desc">Một nút duy nhất: bóng cao tự ĐẬP, bóng thấp gần lưới tự DINK, còn lại là Drive. Click chuột: hướng bóng theo vị trí con trỏ. Cũng dùng để tung &amp; giao bóng.</div>
               </div>
 
               <div class="control-box highlight">
-                <div class="control-badge">PHÍM 1 – 5</div>
-                <div class="control-key-title">Chọn Cú Đánh Pickleball</div>
+                <div class="control-badge">PHÍM CÚ ĐÁNH</div>
+                <div class="control-key-title">Chọn Cú Đánh Trực Tiếp</div>
                 <div class="control-keys-chips">
-                  <span><strong>1:</strong> Drive</span>
-                  <span><strong>2:</strong> Dink Bếp</span>
-                  <span><strong>3:</strong> Drop</span>
-                  <span><strong>4:</strong> Smash</span>
-                  <span><strong>5:</strong> Lob</span>
+                  <span><strong>J:</strong> Cắt (Slice)</span>
+                  <span><strong>L:</strong> Đập (Smash)</span>
+                  <span><strong>U:</strong> Dink</span>
+                  <span><strong>I:</strong> Lob</span>
+                  <span><strong>Chuột phải:</strong> Cắt</span>
+                  <span><strong>Shift+Click:</strong> Đập</span>
+                  <span><strong>Ctrl+Click:</strong> Dink</span>
                 </div>
+                <div class="control-desc">Phím 1–5 chỉ để chọn cú đánh cho thanh chip phía dưới (không đánh ngay).</div>
               </div>
 
               <div class="control-box">
@@ -1370,6 +1379,7 @@
     import { renderAllHudMiiAvatars } from './src/mii_avatars.js';
     renderAllHudMiiAvatars();
   </script>
+  <script type="module" src="./src/mobile_ux.js"></script>
   <script type="module" src="./src/game_engine.js"></script>
 </body>
 </html>

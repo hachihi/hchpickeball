@@ -1,0 +1,156 @@
+/* =====================================================================
+   MOBILE UX  -  Pickleball Hachihi
+   Áp dụng cho thiết bị cảm ứng (html.is-touch) + màn hình nhỏ.
+   ===================================================================== */
+
+/* ---- Nền tảng: chặn kéo/cuộn/zoom ngoài ý muốn ---- */
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+#canvas-container{height:100vh;height:100dvh;touch-action:none}
+#game-canvas{touch-action:none}
+html.is-touch *{-webkit-touch-callout:none}
+html.is-touch .wii-modal-backdrop,
+html.is-touch .wii-modal-backdrop *{touch-action:pan-y}
+
+/* ---- Vùng an toàn (tai thỏ / thanh điều hướng) ---- */
+html.is-touch #top-hud-bar{
+  top:max(8px,env(safe-area-inset-top));
+  left:max(10px,env(safe-area-inset-left));
+  right:max(10px,env(safe-area-inset-right));
+  gap:6px}
+
+/* ---- HUD trên cùng gọn hơn ---- */
+html.is-touch .wii-scoreboard-pill{min-width:0;flex:1 1 auto;max-width:min(58vw,430px);height:40px;padding:0 8px;border-width:2px}
+html.is-touch .wii-games-pill{padding:4px 8px;gap:5px;flex-shrink:0}
+html.is-touch .game-bubble{width:13px;height:13px}
+html.is-touch .mii-avatar-badge{width:30px;height:30px}
+html.is-touch .mii-avatar-badge.secondary-mii{width:26px;height:26px}
+html.is-touch .score-center-display{min-width:0;padding:0 6px;gap:6px;font-size:22px}
+html.is-touch .score-center-display.deuce-mode{font-size:17px}
+html.is-touch .opponent-presence-pill{top:54px;font-size:11px;padding:3px 10px}
+html.is-touch .hud-pause-btn{min-width:40px;min-height:40px}
+
+/* ---- Thanh nút tiện ích bên phải: Menu + Toàn màn hình ---- */
+#mx-tools{
+  position:fixed;z-index:30;display:none;flex-direction:column;gap:8px;
+  top:calc(max(8px,env(safe-area-inset-top)) + 52px);
+  right:max(10px,env(safe-area-inset-right));pointer-events:auto}
+html.is-touch #mx-tools{display:flex}
+#mx-tools button{
+  width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,.85);
+  background:rgba(14,20,28,.78);color:#fff;font:900 18px/1 system-ui,sans-serif;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5);
+  touch-action:manipulation}
+#mx-tools button:active{transform:scale(.92);background:rgba(37,168,245,.85)}
+#mx-fs[hidden]{display:none}
+
+/* ---- Menu (thay cho dock nút ở góc trái dưới) ---- */
+html.is-touch body #bottom-left-dock{
+  position:fixed!important;display:none!important;z-index:60;
+  top:calc(max(8px,env(safe-area-inset-top)) + 52px);
+  right:calc(max(10px,env(safe-area-inset-right)) + 54px);
+  left:auto!important;bottom:auto!important;
+  background:rgba(10,14,20,.94);border:1.5px solid rgba(255,255,255,.5);
+  border-radius:14px;padding:8px;max-height:calc(100dvh - 76px);overflow-y:auto;
+  -webkit-overflow-scrolling:touch;pointer-events:auto;opacity:1!important}
+html.is-touch.menu-open body #bottom-left-dock{display:block!important}
+html.is-touch body #bottom-left-dock .dock-pill-row{
+  display:flex!important;flex-direction:column;align-items:stretch;gap:6px}
+html.is-touch #bottom-left-dock .hud-mini-btn{
+  min-height:42px;font-size:13px;justify-content:flex-start;white-space:nowrap;padding:6px 14px}
+
+/* ---- Dock phải: ẩn những thứ đã có nút cảm ứng thay thế ---- */
+html.is-touch #shot-selector-bar,
+html.is-touch .shot-selector-bar,
+html.is-touch #webcam-pip-card,
+html.is-touch .webcam-pip-card,
+html.is-touch .motion-buttons-col,
+html.is-touch #btn-phone-racket{display:none!important}
+html.is-touch body #bottom-right-dock{
+  left:50%;right:auto;transform:translateX(-50%);
+  bottom:max(8px,env(safe-area-inset-bottom));width:auto;align-items:center}
+html.is-touch #timing-gauge-card{width:196px;max-width:34vw;padding:4px 8px 6px}
+html.is-touch .gauge-header{font-size:9px;margin-bottom:3px}
+html.is-touch .timing-bar-track{height:12px}
+html.is-touch .wii-replay-badge{bottom:max(14px,env(safe-area-inset-bottom));left:max(12px,env(safe-area-inset-left))}
+
+/* ---- JOYSTICK NỔI (nửa trái màn hình) + NÚT ĐÁNH (phải) ---- */
+#easy-controls-root{position:fixed;inset:0;z-index:40;pointer-events:none}
+#easy-controls-root.pad-hidden{display:none!important}
+#easy-joy-zone{
+  position:absolute;left:0;bottom:0;width:46vw;height:62%;
+  pointer-events:auto;touch-action:none}
+#easy-joy-base{
+  position:absolute;width:120px;height:120px;border-radius:50%;
+  left:calc(env(safe-area-inset-left,0px) + 26px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.45);
+  opacity:.45;transition:opacity .15s,background .15s}
+#easy-joy-base.active{opacity:1;background:rgba(255,255,255,.2)}
+#easy-joy-knob{
+  position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;
+  border-radius:50%;background:rgba(255,255,255,.6);border:2px solid #fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#easy-pad{
+  position:absolute;pointer-events:auto;touch-action:none;
+  right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
+  display:grid;grid-template-columns:repeat(2,64px);gap:10px}
+#easy-pad button{
+  height:56px;border-radius:16px;border:2px solid #fff;background:rgba(20,110,200,.8);
+  color:#fff;font:900 14px system-ui,sans-serif;touch-action:manipulation;
+  box-shadow:0 3px 10px rgba(0,0,0,.4);-webkit-user-select:none;user-select:none}
+#easy-pad button.main{grid-column:1/3;height:78px;border-radius:40px;background:rgba(60,170,40,.92);font-size:20px}
+#easy-pad button:active,#easy-pad button.pressed{transform:scale(.93);filter:brightness(1.3)}
+
+/* ---- Nhắc xoay ngang ---- */
+#rotate-overlay{
+  position:fixed;inset:0;z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:24px;text-align:center;color:#fff;
+  background:radial-gradient(circle at 50% 30%,#1b4f8a,#0a1a30 70%);font-family:var(--wii-font)}
+html.is-touch.portrait:not(.rotate-dismissed) #rotate-overlay{display:flex}
+#rotate-overlay .ro-icon{font-size:64px;animation:roSpin 2.2s ease-in-out infinite}
+@keyframes roSpin{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+#rotate-overlay h3{font-size:22px;font-weight:900}
+#rotate-overlay p{font-size:14px;font-weight:700;opacity:.9;max-width:320px;line-height:1.4}
+#rotate-overlay button{
+  min-width:210px;padding:12px 22px;border-radius:999px;border:2.5px solid #fff;
+  font:900 16px var(--wii-font);color:#fff;background:linear-gradient(180deg,#7be0ff,#24a4f5 55%,#0072d6)}
+#rotate-overlay button.ghost{background:transparent;border-color:rgba(255,255,255,.55);font-size:14px;padding:9px 18px}
+
+/* ---- Gợi ý lần đầu ---- */
+#mx-toast{
+  position:fixed;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 58px);transform:translateX(-50%);
+  z-index:35;max-width:min(92vw,520px);padding:8px 16px;border-radius:14px;
+  background:rgba(10,14,20,.86);border:1.5px solid rgba(255,255,255,.6);color:#fff;
+  font:700 13px/1.4 system-ui,sans-serif;text-align:center;pointer-events:none;
+  opacity:0;transition:opacity .4s}
+#mx-toast.show{opacity:1}
+#mx-toast b{color:#ffea28}
+
+/* ---- Màn hình ngang thấp (điện thoại xoay ngang) ---- */
+@media (max-height:520px){
+  .center-banner-text{font-size:clamp(28px,8vh,46px)!important}
+  .center-banner-streak{height:48px}
+  .center-banner-sub{font-size:12px}
+  .wii-timing-popup{padding:3px 10px}
+  .timing-grade{font-size:13px}
+  .wii-title-card{padding:12px 18px;gap:8px;max-height:97dvh}
+  .court-preview-diagram{display:none!important}
+  .argon-logo-title{font-size:24px}
+  .wii-ok-btn,.btn-hero-cta-lime{padding:9px 24px;font-size:16px}
+  .wii-green-choice{padding:8px 6px;min-height:42px}
+  .wii-dialog-box,.pause-modal-card,.wii-skill-card{max-height:97dvh;overflow-y:auto;padding:12px 16px;gap:8px}
+  .skill-chart-frame{display:none}
+  .skill-card-body{grid-template-columns:1fr}
+  .victory-result-banner{font-size:22px}
+  .wii-modal-backdrop{padding:max(6px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+  html.is-touch #easy-joy-base{width:104px;height:104px}
+  html.is-touch #easy-pad{grid-template-columns:repeat(2,58px);gap:8px}
+  html.is-touch #easy-pad button{height:50px;font-size:13px}
+  html.is-touch #easy-pad button.main{height:66px;font-size:18px}
+}
+
+/* ---- Chạm: nút đủ lớn (>= 40px) ---- */
+html.is-touch .hud-mini-btn,
+html.is-touch .shot-chip,
+html.is-touch .wii-footer-btn,
+html.is-touch .wii-pill-btn{min-height:40px}
+html.is-touch input,html.is-touch select,html.is-touch textarea{font-size:16px} /* chống iOS tự zoom khi nhập */
