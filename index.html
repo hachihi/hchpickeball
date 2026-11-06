@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Pickleball Hachihi Mở Rộng 2026 - Giải đấu chào mừng 17 năm Hoàng Mai. Kết nối đam mê, bứt phá giới hạn với 3D Arena, luật Kitchen & Two-Bounce chuẩn quốc tế." />
+  <meta property="og:title" content="Pickleball – Hachihi" />
+  <meta property="og:description" content="Pickleball Hachihi Mở Rộng 2026 - Giải đấu chào mừng 17 năm Hoàng Mai. Kết nối đam mê, bứt phá giới hạn với 3D Arena, luật Kitchen & Two-Bounce chuẩn quốc tế." />
+  <title>Pickleball – Hachihi</title>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('play') || params.has('state')) {
+        document.documentElement.classList.add('autoplay-mode');
+      }
+      const stateParam = (params.get('state') || '').toLowerCase();
+      if (stateParam) {
+        document.documentElement.setAttribute('data-url-state', stateParam);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="root" class="hidden" aria-hidden="true"></div>
+  <div id="canvas-container" aria-label="Pickleball Hachihi 3D Arena Viewport">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="hud-root">
+    <header id="top-hud-bar">
+      <div id="games-pill-player" class="wii-games-pill" title="Player Games Won">
+        <span class="game-bubble" data-slot="0"></span>
+        <span class="game-bubble" data-slot="1"></span>
+        <span class="game-bubble extra-slot hidden" data-slot="2"></span>
+      </div>
+
+      <div id="scoreboard-pill" class="wii-scoreboard-pill">
+        <div class="mii-side mii-side-player">
+          <div class="mii-avatar-badge player-tint">
+            <canvas id="mii-icon-player" width="192" height="192"></canvas>
+          </div>
+          <div class="mii-avatar-badge player-tint secondary-mii">
+            <canvas id="mii-icon-player-2" width="192" height="192"></canvas>
+          </div>
+        </div>
+
+        <div id="score-center-display" class="score-center-display">
+          <span id="score-player-text" class="score-digits">00</span>
+          <span id="score-separator" class="score-dash">-</span>
+          <span id="score-opponent-text" class="score-digits">00</span>
+          <span id="score-server-badge" class="server-badge" title="Lượt giao bóng">S2</span>
+        </div>
+
+        <div class="mii-side mii-side-opponent">
+          <div class="mii-avatar-badge opponent-tint secondary-mii">
+            <canvas id="mii-icon-opponent-2" width="192" height="192"></canvas>
+          </div>
+          <div class="mii-avatar-badge opponent-tint">
+            <canvas id="mii-icon-opponent" width="192" height="192"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div id="games-pill-opponent" class="wii-games-pill" title="Opponent Games Won">
+        <span class="game-bubble" data-slot="0"></span>
+        <span class="game-bubble" data-slot="1"></span>
+        <span class="game-bubble extra-slot hidden" data-slot="2"></span>
+      </div>
+
+      <button id="btn-pause-exit-hud" class="hud-pause-btn" type="button" title="Tạm dừng / Thoát trận đấu (Phím Esc hoặc P)">
+        <span class="pause-icon">⏸</span>
+        <span class="pause-text" id="btn-pause-exit-text">Thoát Trận</span>
+      </button>
+    </header>
+
+    <div id="opponent-presence-pill" class="opponent-presence-pill hidden" aria-live="polite">
+      <span id="opponent-presence-dot" class="presence-dot"></span>
+      <span id="opponent-presence-text">Waiting for Player 2…</span>
+    </div>
+
+    <div id="world-labels-layer">
+      <div id="server-tag" class="wii-server-tag hidden">
+        <span class="server-tag-text" id="server-tag-text">Giao bóng (S2)</span>
+      </div>
+      <div id="player-nameplate" class="wii-court-nameplate player-plate hidden">
+        <canvas id="plate-mii-player" width="192" height="192"></canvas>
+        <div class="plate-info">
+          <div class="plate-name" id="hud-player-name">Hachihi Pro</div>
+          <div class="plate-skill" id="hud-player-skill">Điểm CLB 1050</div>
+        </div>
+      </div>
+      <div id="timing-popup" class="wii-timing-popup hidden">
+        <span id="timing-popup-grade" class="timing-grade">PERFECT</span>
+        <span id="timing-popup-detail" class="timing-detail">DINK • KITCHEN DROP</span>
+      </div>
+    </div>
+
+    <div id="center-banner-layer" class="center-banner-layer hidden">
+      <div id="center-banner-streak" class="center-banner-streak"></div>
+      <div id="center-banner-text" class="center-banner-text style-gold">Game Point</div>
+      <div id="center-banner-sub" class="center-banner-sub hidden"></div>
+    </div>
+
+    <div id="replay-badge" class="wii-replay-badge hidden">
+      <span class="replay-dots"><i class="dot dot-1"></i><i class="dot dot-2"></i><i class="dot dot-3"></i></span>
+      <span class="replay-label">Replay</span>
+    </div>
+
+    <div id="bottom-right-dock" class="hud-corner-dock bottom-right-dock">
+      <div class="shot-selector-bar" id="shot-selector-bar">
+        <button type="button" class="shot-chip active" data-shot="TOPSPIN" title="Cú Drive / Topspin (Phím 1)">
+          <span>Drive</span><span class="shot-chip-key">1</span>
+        </button>
+        <button type="button" class="shot-chip" data-shot="DINK" title="Cú Dink thả bóng vào bếp (Phím 2)">
+          <span>Dink</span><span class="shot-chip-key">2</span>
+        </button>
+        <button type="button" class="shot-chip" data-shot="SLICE" title="Cú Drop shot thứ 3 (Phím 3)">
+          <span>Drop</span><span class="shot-chip-key">3</span>
+        </button>
+        <button type="button" class="shot-chip" data-shot="FLAT" title="Cú Smash đập bóng (Phím 4)">
+          <span>Smash</span><span class="shot-chip-key">4</span>
+        </button>
+        <button type="button" class="shot-chip" data-shot="LOB" title="Cú Lob lốp bóng bổng (Phím 5)">
+          <span>Lob</span><span class="shot-chip-key">5</span>
+        </button>
+      </div>
+
+      <div id="timing-gauge-card" class="timing-gauge-card">
+        <div class="gauge-header">
+          <span id="gauge-mode-title">ĐỘ CHUẨN VUNG VỢT</span>
+          <span id="gauge-speed-readout">SẴN SÀNG</span>
+        </div>
+        <div class="timing-bar-track">
+          <div class="timing-zone zone-early" id="gauge-zone-early">SỚM (Chéo)</div>
+          <div class="timing-zone zone-sweet" id="gauge-zone-sweet">ĐIỂM NGỌT</div>
+          <div class="timing-zone zone-late" id="gauge-zone-late">MUỘN (Dọc)</div>
+          <div id="timing-cursor" class="timing-cursor" style="left: 50%;"></div>
+        </div>
+      </div>
+
+      <div class="motion-controls-row">
+        <div id="webcam-pip-card" class="webcam-pip-card hidden">
+          <video id="webcam-video" autoplay playsinline muted></video>
+          <canvas id="webcam-canvas" width="160" height="120"></canvas>
+          <div class="pip-badge">
+            <span class="pip-live-dot"></span><span id="pip-motion-label">Webcam Swing</span>
+          </div>
+        </div>
+
+        <div class="motion-buttons-col">
+          <button id="btn-webcam-toggle" class="hud-mini-btn motion-btn" type="button">
+            <span class="btn-dot" id="webcam-status-dot"></span><span id="btn-webcam-text">Webcam</span>
+          </button>
+          <button id="btn-phone-racket" class="hud-mini-btn motion-btn hidden" type="button">
+            <span class="btn-dot" id="phone-status-dot"></span><span id="phone-status-label">Pocket Paddle</span>
+          </button>
+
+          <div id="bottom-left-dock" class="hud-corner-dock bottom-left-dock">
+            <div class="dock-pill-row">
+              <button id="btn-lang-toggle" class="hud-mini-btn lang-toggle-btn" type="button" title="Chuyển đổi Tiếng Việt / English"><span>🇻🇳 VI</span></button>
+              <button id="btn-portal-hud" class="hud-mini-btn portal-hud-btn" type="button" title="Khám phá Giải Đấu Hachihi Open 2026"><span>🏆</span><span id="btn-portal-hud-text">Hachihi Open</span></button>
+              <button id="btn-rules-hud" class="hud-mini-btn rules-hud-btn" type="button" title="Xem sổ tay luật chơi Pickleball"><span>📋</span><span id="btn-rules-hud-text">Luật chơi</span></button>
+              <button id="btn-settings-hud" class="hud-mini-btn settings-hud-btn" type="button" title="Cài đặt Phím, Âm thanh & Ánh sáng"><span>⚙️</span><span id="btn-settings-hud-text">Cài đặt</span></button>
+              <button id="btn-audio-toggle" class="hud-mini-btn" type="button" title="Toggle Lyria 3 Soundtrack & SFX"><span class="btn-dot music-on" id="audio-status-dot"></span><span id="audio-track-label">Lyria: Sunny Rally</span></button>
+              <button id="btn-camera-cycle" class="hud-mini-btn" type="button" title="Cycle Camera Angle (C)"><span id="cam-label-prefix">Góc:</span><strong id="camera-mode-label">Rally</strong></button>
+              <button id="btn-replay-trigger" class="hud-mini-btn" type="button" title="Toggle Instant Replay (R)"><span id="btn-replay-text">Replay</span></button>
+              <button id="btn-exit-match" class="hud-mini-btn exit-match-btn" type="button" title="Thoát ván đấu về Menu (Esc hoặc P)"><span>🚪</span><span id="btn-exit-match-text">Thoát</span></button>
+              <button id="btn-multiplayer-modal" class="hud-mini-btn hidden" type="button" title="Open 1v1 Multiplayer"><span>💬 1v1</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause & Exit Modal -->
+  <div id="pause-exit-modal" class="wii-modal-backdrop hidden" aria-hidden="true">
+    <div class="pause-modal-card">
+      <div class="pause-modal-header">
+        <div class="pause-modal-badge">
+          <span class="pause-badge-pulse">⏸</span>
+          <span id="pause-modal-badge-text">TẠM DỪNG TRẬN ĐẤU</span>
+        </div>
+        <h2 class="pause-modal-title">Pickleball Hachihi Open 2026</h2>
+        <div id="pause-match-summary" class="pause-match-summary">
+          <span class="pause-score-chip" id="pause-score-chip">Tỉ số: 0 - 0</span>
+          <span class="pause-format-chip" id="pause-format-chip">Đánh Đôi 2v2</span>
+        </div>
+      </div>
+
+      <div class="pause-modal-actions">
+        <button type="button" id="btn-pause-resume" class="pause-action-btn btn-resume">
+          <span class="action-icon">▶</span>
+          <div class="action-text">
+            <strong id="txt-pause-resume-title">Tiếp Tục Thi Đấu</strong>
+            <small id="txt-pause-resume-sub">Quay lại sân đánh bóng ngay (Esc hoặc P)</small>
+          </div>
+        </button>
+
+        <button type="button" id="btn-pause-lobby" class="pause-action-btn btn-lobby">
+          <span class="action-icon">👥</span>
+          <div class="action-text">
+            <strong id="txt-pause-lobby-title">Sảnh Chờ &amp; Đội Hình (Lobby)</strong>
+            <small id="txt-pause-lobby-sub">Đổi thể thức Đơn/Đôi, thêm/bớt BOT AI, mời người</small>
+          </div>
+        </button>
+
+        <button type="button" id="btn-pause-restart" class="pause-action-btn btn-restart">
+          <span class="action-icon">🔄</span>
+          <div class="action-text">
+            <strong id="txt-pause-restart-title">Chơi Lại Ván Này</strong>
+            <small id="txt-pause-restart-sub">Đặt lại điểm số 0-0 và phát bóng lại từ đầu</small>
+          </div>
+        </button>
+
+        <button type="button" id="btn-pause-cancel-room" class="pause-action-btn btn-cancel-room">
+          <span class="action-icon">🚫</span>
+          <div class="action-text">
+            <strong id="txt-pause-cancel-title">Hủy Phòng &amp; Xóa Dữ Liệu Trận</strong>
+            <small id="txt-pause-cancel-sub">Giải tán phòng, xóa bộ nhớ tạm cache trình duyệt</small>
+          </div>
+        </button>
+
+        <button type="button" id="btn-pause-main-menu" class="pause-action-btn btn-main-menu">
+          <span class="action-icon">🏠</span>
+          <div class="action-text">
+            <strong id="txt-pause-menu-title">Thoát Về Menu Chính</strong>
+            <small id="txt-pause-menu-sub">Dừng trận đấu và trở về trang chủ giải đấu</small>
+          </div>
+        </button>
+      </div>
+
+      <div class="pause-modal-footer">
+        <span id="txt-pause-footer">💡 Mẹo: Nhấn <strong>ESC</strong> hoặc phím <strong>P</strong> bất kỳ lúc nào để tạm dừng và thoát trận.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reconnect from Browser Cache Modal -->
+  <div id="match-reconnect-modal" class="wii-modal-backdrop hidden" aria-hidden="true">
+    <div class="reconnect-modal-card">
+      <div class="reconnect-header">
+        <div class="reconnect-badge">
+          <span class="reconnect-pulse-dot"></span>
+          <span>BỘ NHỚ TRÌNH DUYỆT (BROWSER CACHE)</span>
+        </div>
+        <h2 class="reconnect-title">Phát Hiện Trận Đấu Chưa Hoàn Thành!</h2>
+        <p class="reconnect-desc">Hệ thống phát hiện bạn vừa bị ngắt kết nối hoặc vô tình tải lại trang khi trận đấu đang diễn ra. Bạn có thể quay lại ngay đúng slot và tỉ số cũ!</p>
+      </div>
+
+      <div class="reconnect-card-info" id="reconnect-card-info">
+        <div class="reconnect-info-row">
+          <span class="reconnect-info-label">Mã phòng:</span>
+          <strong class="reconnect-info-val" id="reconnect-room-id">HCH-2026</strong>
+        </div>
+        <div class="reconnect-info-row">
+          <span class="reconnect-info-label">Chế độ &amp; Thể thức:</span>
+          <strong class="reconnect-info-val" id="reconnect-mode-type">Offline • Đánh Đôi (2v2)</strong>
+        </div>
+        <div class="reconnect-info-row">
+          <span class="reconnect-info-label">Tỉ số hiện tại:</span>
+          <strong class="reconnect-info-val highlight-gold" id="reconnect-score-val">0 - 0</strong>
+        </div>
+        <div class="reconnect-info-row">
+          <span class="reconnect-info-label">Thời gian lưu:</span>
+          <span class="reconnect-info-val" id="reconnect-time-val">Vừa xong</span>
+        </div>
+      </div>
+
+      <div class="reconnect-actions">
+        <button type="button" id="btn-reconnect-resume" class="btn-reconnect-primary">
+          <span>⚡ Tiếp Tục Vào Lại Trận Đấu</span>
+        </button>
+        <button type="button" id="btn-reconnect-discard" class="btn-reconnect-secondary">
+          <span>🗑️ Hủy Bỏ Trận Cũ &amp; Bắt Đầu Mới</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Title Modal: Styled like https://pickleball.hachihi.vn/ -->
+  <div id="title-modal" class="wii-modal-backdrop">
+    <div class="wii-title-card portal-hero-theme">
+      <!-- Portal Header Topbar -->
+      <div class="portal-site-topbar">
+        <div class="portal-site-brand">
+          <div class="brand-logo-circle">🏓</div>
+          <div class="brand-title-wrap">
+            <span class="brand-eyebrow">HACHIHI OPEN 2026</span>
+            <span class="brand-main">PICKLEBALL MỞ RỘNG</span>
+          </div>
+        </div>
+        <div class="portal-site-actions">
+          <button type="button" id="btn-title-lang-toggle" class="portal-pill-tag lang-tag">🇻🇳 VI</button>
+          <a href="https://pickleball.hachihi.vn/" target="_blank" rel="noopener" class="portal-verify-link">Xác nhận đội ↗</a>
+        </div>
+      </div>
+
+      <!-- Hero Content -->
+      <div class="portal-hero-section">
+        <div class="hero-status-pill">
+          <span class="status-live-dot"></span>
+          <span>TRƯỚC SỰ KIỆN • HACHIHI OPEN 2026</span>
+        </div>
+        
+        <h1 class="hero-event-title">
+          <span class="title-line-white">PICKLEBALL</span>
+          <span class="title-line-lime">HACHIHI MỞ RỘNG 2026</span>
+        </h1>
+        
+        <div class="hero-slogan">KẾT NỐI ĐAM MÊ. BỨT PHÁ GIỚI HẠN.</div>
+        
+        <p class="hero-desc">
+          Nơi tinh thần thể thao kết nối cộng đồng doanh nhân và những người bạn công nghệ. Cùng viết tiếp hành trình đầy cảm hứng, chào mừng 17 năm thành lập Hoàng Mai.
+        </p>
+
+        <div class="hero-meta-row">
+          <span class="meta-item"><i class="meta-icon">📅</i> Thứ Bảy, 14/11/2026 • 10:00 – 16:00</span>
+          <span class="meta-item"><i class="meta-icon">📍</i> Cụm sân Pickleball Thanh Đa, TP.HCM</span>
+        </div>
+      </div>
+
+      <!-- Court Preview Diagram -->
+      <div class="court-preview-diagram">
+        <div class="court-preview-top-brand">
+          <div class="court-brand-left">
+            <span class="court-brand-badge-icon">🏓</span>
+            <span class="court-brand-domain">hachihi.vn</span>
+            <span class="court-brand-dot">•</span>
+            <span class="court-brand-sub">SÂN ĐẤU CHUẨN QUỐC TẾ</span>
+          </div>
+          <div class="court-brand-right">
+            <span class="kitchen-rule-pill">NVZ / BẾP 7 FT (2.13M)</span>
+          </div>
+        </div>
+
+        <div class="mini-court-turf pickleball-turf" aria-label="Sân Pickleball Hachihi chuẩn quốc tế 44x20ft">
+          <!-- Court Lines & Markings -->
+          <div class="mini-court-lines">
+            <!-- Non-Volley Zone (Kitchen) in the center 31.8% of court -->
+            <div class="mini-kitchen-zone">
+              <div class="mini-kitchen-half left-kitchen">
+                <span class="mini-kitchen-label">BẾP (7 FT)</span>
+                <span class="mini-kitchen-metric">2.13M</span>
+              </div>
+              <div class="mini-kitchen-half right-kitchen">
+                <span class="mini-kitchen-label">BẾP (7 FT)</span>
+                <span class="mini-kitchen-metric">2.13M</span>
+              </div>
+            </div>
+
+            <!-- Explicit Crisp 7ft / 2.13m Demarcation Kitchen Lines -->
+            <div class="mini-kitchen-line left-line" title="Vạch bếp 7ft (2.13m)"></div>
+            <div class="mini-kitchen-line right-line" title="Vạch bếp 7ft (2.13m)"></div>
+
+            <!-- Center Net with Net Strap & Posts -->
+            <div class="mini-net-line">
+              <span class="net-strap-logo">HACHIHI</span>
+            </div>
+
+            <!-- Service Box Centerlines (Horizontal) -->
+            <div class="mini-service-centerline opponent-side"></div>
+            <div class="mini-service-centerline player-side"></div>
+
+            <!-- Surface Watermark / Brand Stencils -->
+            <div class="court-watermark-left">HACHIHI.VN</div>
+            <div class="court-watermark-right">OPEN 2026</div>
+          </div>
+
+          <div class="court-slot-marker opponent-marker">
+            <canvas id="setup-mii-opponent" width="192" height="192"></canvas>
+            <div id="setup-opponent-label" class="slot-tag cpu-tag">CLB AI</div>
+          </div>
+          <div class="court-slot-marker player-marker">
+            <canvas id="setup-mii-player" width="192" height="192"></canvas>
+            <div class="slot-tag you-tag" id="setup-you-label">Hachihi Pro</div>
+          </div>
+        </div>
+
+        <div class="court-preview-footer-brand">
+          <span class="court-dimen-tag">KÍCH THƯỚC: 44 FT × 20 FT (13.4M × 6.1M)</span>
+          <span class="court-host-tag">HACHIHI OPEN 2026 • HOÀNG MAI 17 NĂM</span>
+        </div>
+      </div>
+
+      <div class="setup-section player-name-section">
+        <label class="setup-label" for="player-name-input" id="label-player-name">Tên của bạn / Player Name:</label>
+        <input type="text" id="player-name-input" class="wii-input-name" maxlength="16" value="Hachihi Pro" placeholder="Nhập tên vận động viên..." />
+      </div>
+
+      <!-- BƯỚC 1: CHỌN HÌNH THỨC CHƠI (1 NGƯỜI HAY NHIỀU NGƯỜI) -->
+      <div class="setup-section" id="primary-play-choice-section">
+        <label class="setup-label">Chọn Hình Thức Chơi / Game Type:</label>
+        <div class="primary-play-grid">
+          <button type="button" class="primary-play-card active" id="btn-choice-solo" data-type="solo">
+            <div class="play-card-badge">TỰ ĐỘNG THÊM BOT</div>
+            <div class="play-card-icon">🎮</div>
+            <div class="play-card-title">CHƠI 1 NGƯỜI (VỚI MÁY)</div>
+            <div class="play-card-sub">Đấu với BOT AI thông minh, tự động lấp đủ đồng đội &amp; đối thủ để vào sân ngay.</div>
+          </button>
+
+          <button type="button" class="primary-play-card" id="btn-choice-multi" data-type="multi">
+            <div class="play-card-badge badge-gold">SẢNH CHỜ &amp; MÃ 5 SỐ</div>
+            <div class="play-card-icon">🌐</div>
+            <div class="play-card-title">CHƠI NHIỀU NGƯỜI (TẠO PHÒNG)</div>
+            <div class="play-card-sub">Tạo phòng lấy mã 5 số, đợi người khác vào, chat trực tiếp, chủ phòng bấm bắt đầu.</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL KHI CHỌN 1 NGƯỜI: CHO CHỌN TIẾP 1-1 HAY 2-2 VÀ TỰ ĐỘNG THÊM BOT -->
+      <div id="panel-solo-setup" class="play-subpanel">
+        <div class="setup-section" id="match-format-section">
+          <label class="setup-label">Chọn Thể Thức (Đấu 1-1 hay 2-2 với Máy):</label>
+          <div class="wii-green-btn-row format-btn-row" id="match-format-group">
+            <button type="button" class="wii-green-choice format-choice" data-format="singles">
+              <span class="choice-main">👤 Đấu 1 - 1 (Đơn • Bạn vs 1 BOT)</span>
+            </button>
+            <button type="button" class="wii-green-choice format-choice selected" data-format="doubles">
+              <span class="choice-main">👥 Đấu 2 - 2 (Đôi • Bạn + 1 BOT vs 2 BOT)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="setup-section">
+          <label class="setup-label">Cấp Độ Đối Thủ / Level BOT:</label>
+          <div class="wii-green-btn-row" id="difficulty-mode-group">
+            <button type="button" class="wii-green-choice selected" data-difficulty="casual"><span class="choice-main" id="choice-diff-casual">Dễ (Người mới)</span></button>
+            <button type="button" class="wii-green-choice" data-difficulty="pro"><span class="choice-main" id="choice-diff-pro">Vừa (Chuẩn)</span></button>
+            <button type="button" class="wii-green-choice" data-difficulty="1v1"><span class="choice-main" id="choice-diff-1v1">Khó (Pro)</span></button>
+          </div>
+        </div>
+
+        <div class="setup-section" id="match-length-section">
+          <label class="setup-label">Số Ván Thi Đấu / Games to Win:</label>
+          <div class="wii-green-btn-row" id="match-length-group">
+            <button type="button" class="wii-green-choice" data-games="1"><span class="choice-main" id="choice-length-1">1 Ván (11đ)</span></button>
+            <button type="button" class="wii-green-choice selected" data-games="3"><span class="choice-main" id="choice-length-3">Bo3 (11đ)</span></button>
+            <button type="button" class="wii-green-choice" data-games="5"><span class="choice-main" id="choice-length-5">Nhanh (5đ)</span></button>
+          </div>
+        </div>
+
+        <div class="solo-auto-bot-notice">
+          <span class="notice-icon">🤖</span>
+          <span id="solo-bot-status-text">Đã tự động lấp đủ BOT AI thông minh (Đồng đội &amp; Đối thủ) cho thể thức Đôi 2-2. Bấm nút dưới để vào sân ngay!</span>
+        </div>
+
+        <div class="wii-modal-actions title-actions-stack">
+          <button id="btn-start-match" type="button" class="btn-hero-cta-lime">
+            <span class="hand-cursor-icon">🏓</span><span id="btn-start-match-text">VÀO SÂN THI ĐẤU NGAY ↗</span>
+          </button>
+          
+          <div class="hero-sub-actions">
+            <button id="btn-open-portal" type="button" class="btn-hero-outline">
+              <span>🏆 Sổ tay giải đấu &amp; Cài đặt →</span>
+            </button>
+            <button id="btn-open-rules-title" type="button" class="btn-hero-ghost">
+              <span>📖 Xem Luật Chơi</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL KHI CHỌN NHIỀU NGƯỜI: TẠO PHÒNG LẤY MÃ HOẶC NHẬP MÃ THAM GIA -->
+      <div id="panel-multi-setup" class="play-subpanel hidden">
+        <div class="multi-quick-card">
+          <div class="multi-card-header">
+            <span class="multi-badge-pulse">🌐 MULTIPLAYER LOBBY</span>
+            <h3 class="multi-card-title">Tạo Phòng &amp; Đấu Online Cùng Bạn Bè</h3>
+            <p class="multi-card-sub">Lấy mã phòng 5 số chia sẻ cho bạn bè, tùy chỉnh 2 Đội, chat thời gian thực và Chủ phòng nhấn bắt đầu.</p>
+          </div>
+
+          <div class="multi-action-options">
+            <button type="button" id="btn-create-multi-room" class="btn-multi-create-big">
+              <span class="btn-icon">➕</span>
+              <div class="btn-text">
+                <strong>TẠO PHÒNG MỚI (MÃ 5 CHỮ SỐ)</strong>
+                <small>Khởi tạo phòng đấu, bạn làm Chủ phòng (Host) điều phối</small>
+              </div>
+            </button>
+
+            <div class="join-room-divider">
+              <span>HOẶC THAM GIA BẰNG MÃ</span>
+            </div>
+
+            <div class="join-room-input-group">
+              <input type="text" id="input-join-room-code" class="input-room-code" placeholder="Nhập mã 5 số (VD: 10150)..." maxlength="8" />
+              <button type="button" id="btn-submit-join-room" class="btn-room-join-submit">
+                <span>Tham Gia Phòng ↗</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="wii-modal-actions title-actions-stack">
+          <div class="hero-sub-actions">
+            <button id="btn-back-to-solo" type="button" class="btn-hero-outline">
+              <span>⬅ Quay lại Chơi 1 Người</span>
+            </button>
+            <button id="btn-open-portal-multi" type="button" class="btn-hero-ghost">
+              <span>🏆 Xem Giải Đấu</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Tab Portal Modal: Giới Thiệu Giải Đấu, Luật Chơi, Cài Đặt Nút Điều Khiển, Âm Thanh Ánh Sáng & Hiệu Ứng Sân Khấu -->
+  <div id="hachihi-portal-modal" class="wii-modal-backdrop hidden">
+    <div class="portal-dialog-card">
+      <!-- Portal Top Header & Tabs -->
+      <div class="portal-modal-header">
+        <div class="portal-header-brand">
+          <span class="brand-icon">🏓</span>
+          <div class="brand-text-block">
+            <span class="portal-brand-sub">HACHIHI OPEN 2026 • 17 NĂM HOÀNG MAI</span>
+            <h2 class="portal-brand-title">TRUNG TÂM GIẢI ĐẤU &amp; CÀI ĐẶT SÂN ĐẤU</h2>
+          </div>
+        </div>
+        
+        <button type="button" class="portal-close-x" id="btn-close-portal-x" title="Đóng">✕</button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="portal-nav-tabs" role="tablist">
+        <button type="button" class="portal-tab active" data-tab="about" role="tab" aria-selected="true">
+          <span class="tab-icon">🏆</span>
+          <span class="tab-label">Giới Thiệu Giải Đấu</span>
+        </button>
+        <button type="button" class="portal-tab" data-tab="rules" role="tab" aria-selected="false">
+          <span class="tab-icon">📖</span>
+          <span class="tab-label">Hướng Dẫn Luật Chơi</span>
+        </button>
+        <button type="button" class="portal-tab" data-tab="controls" role="tab" aria-selected="false">
+          <span class="tab-icon">🎮</span>
+          <span class="tab-label">Cài Đặt Điều Khiển</span>
+        </button>
+        <button type="button" class="portal-tab" data-tab="stage" role="tab" aria-selected="false">
+          <span class="tab-icon">✨</span>
+          <span class="tab-label">Âm Thanh, Ánh Sáng &amp; Cổ Vũ</span>
+        </button>
+      </nav>
+
+      <!-- Tab Content Scrollable Container -->
+      <div class="portal-scroll-body">
+        
+        <!-- TAB 1: Giới Thiệu Giải Đấu Hachihi Open 2026 (Theo https://pickleball.hachihi.vn/) -->
+        <div class="portal-tab-pane active" id="pane-about">
+          <!-- Hero Banner with Embedded Website Image -->
+          <div class="about-hero-card">
+            <div class="about-hero-img-wrap">
+              <img src="/assets/aistudio/image_1999677e.png" alt="Pickleball Hachihi Mở Rộng 2026 Banner" class="about-hero-img" loading="lazy" />
+              <div class="about-hero-overlay">
+                <span class="hero-tag-badge">🟢 TRƯỚC SỰ KIỆN • HACHIHI OPEN 2026</span>
+                <h3 class="about-hero-h3">PICKLEBALL HACHIHI MỞ RỘNG 2026</h3>
+                <p class="about-hero-slogan">KẾT NỐI ĐAM MÊ. BỨT PHÁ GIỚI HẠN.</p>
+              </div>
+            </div>
+            
+            <div class="about-body-text">
+              <p>
+                <strong>Nơi tinh thần thể thao kết nối cộng đồng doanh nhân và những người bạn công nghệ.</strong> 
+                Cùng viết tiếp hành trình đầy cảm hứng, chào mừng <strong>17 năm thành lập Hoàng Mai</strong> (2009 – 2026).
+              </p>
+              <div class="about-meta-grid">
+                <div class="about-meta-box">
+                  <div class="meta-label">📅 THỜI GIAN</div>
+                  <div class="meta-val">Thứ Bảy, 14/11/2026 • 10:00 – 16:00</div>
+                </div>
+                <div class="about-meta-box">
+                  <div class="meta-label">📍 ĐỊA ĐIỂM</div>
+                  <div class="meta-val">Cụm Sân Pickleball Thanh Đa, TP. Hồ Chí Minh</div>
+                </div>
+                <div class="about-meta-box">
+                  <div class="meta-label">👥 ĐỐI TƯỢNG</div>
+                  <div class="meta-val">Cộng đồng doanh nhân, công nghệ &amp; thành viên Hachihi</div>
+                </div>
+                <div class="about-meta-box">
+                  <div class="meta-label">🏓 NỘI DUNG THI ĐẤU</div>
+                  <div class="meta-val">Đôi Nam, Đôi Nữ, Đôi Nam - Nữ Kết Hợp</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cơ Cấu Giải Thưởng -->
+          <div class="prize-section">
+            <h4 class="section-heading">🏆 Cơ Cấu Giải Thưởng Hachihi Open 2026</h4>
+            <div class="prize-grid">
+              <div class="prize-card gold">
+                <div class="prize-rank">🥇 VÔ ĐỊCH</div>
+                <div class="prize-reward">15.000.000 VNĐ</div>
+                <div class="prize-extra">Cúp Vàng Hachihi + 02 Vợt Pro Composite + Huy chương Vàng</div>
+              </div>
+              <div class="prize-card silver">
+                <div class="prize-rank">🥈 Á QUÂN</div>
+                <div class="prize-reward">8.000.000 VNĐ</div>
+                <div class="prize-extra">Cúp Bạc Hachihi + Túi vợt chuyên dụng + Huy chương Bạc</div>
+              </div>
+              <div class="prize-card bronze">
+                <div class="prize-rank">🥉 ĐỒNG HẠNG BA</div>
+                <div class="prize-reward">4.000.000 VNĐ</div>
+                <div class="prize-extra">Cúp Đồng Hachihi + Bộ bóng thi đấu 40 lỗ + Huy chương Đồng</div>
+              </div>
+              <div class="prize-card special">
+                <div class="prize-rank">🌟 GIẢI PHONG CÁCH</div>
+                <div class="prize-reward">2.000.000 VNĐ</div>
+                <div class="prize-extra">Kỷ niệm chương Fair-Play + Voucher tập luyện tại CLB Hachihi</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thông tin Ban Tổ Chức & Nhà Tài Trợ -->
+          <div class="organizer-card">
+            <div class="org-info">
+              <span class="org-badge">ĐƠN VỊ TỔ CHỨC CHÍNH THỨC</span>
+              <h4 class="org-name">CÔNG TY CỔ PHẦN CÔNG NGHỆ HOÀNG MAI • CLB PICKLEBALL HACHIHI</h4>
+              <p class="org-desc">Sứ mệnh mang đến sân chơi thể thao công nghệ đỉnh cao, gắn kết cộng đồng và truyền lửa đam mê.</p>
+            </div>
+            <div class="org-links">
+              <a href="https://pickleball.hachihi.vn/" target="_blank" rel="noopener" class="portal-cta-lime">
+                <span>Trang Web pickleball.hachihi.vn ↗</span>
+              </a>
+              <button type="button" class="portal-cta-play" id="btn-about-play-court">
+                <span>🏓 Vào Sân Thi Đấu Ngay ↗</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Khoảnh Khắc & Hình Ảnh Sân Đấu Thực Tế (Ảnh Mẫu Giải Đấu) -->
+          <div class="tournament-gallery-section">
+            <h4 class="section-heading">📸 Khoảnh Khắc &amp; Hình Ảnh Sân Đấu Thực Tế</h4>
+            <p class="gallery-sub">Đấu trường Pickleball chuẩn quốc tế với vạch tím Non-Volley Zone (Kitchen) và sân xanh dương cao cấp</p>
+            
+            <div class="gallery-grid">
+              <div class="gallery-item large">
+                <img src="/assets/aistudio/image_f56d5a53.png" alt="Đại tiệc Pickleball Hachihi Mở Rộng 2026 - 17 Năm Hoàng Mai" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Đại Tiệc &amp; Lễ Trao Giải Pickleball Hachihi Mở Rộng 2026</strong>
+                  <span>Nhà tài trợ đồng hành: Dell, Lenovo, LG, Inspur, Zadez, Microsoft, HP, AOC • 17 Năm Hoàng Mai</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_947f7d6e.png" alt="Lễ khai mạc đấu trường Hachihi - Teamwork makes the dream work" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Lễ Khai Mạc Đấu Trường Hachihi &amp; BNI</strong>
+                  <span>Cộng đồng doanh nhân tranh tài: "Teamwork makes the dream work!"</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_3e029a80.png" alt="Vận động viên thi đấu với vợt CRBN trên sân tím/xanh" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Tranh Tài Đỉnh Cao Trên Sân Tím / Xanh</strong>
+                  <span>Cú bạt bóng chính xác với vợt carbon CRBN và bóng 40 lỗ</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_0c9d3fd1.png" alt="Pha rượt đuổi bóng kịch tính tại vùng bếp Kitchen" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Kịch Chiến Tại Vùng Bếp Kitchen (NVZ)</strong>
+                  <span>Phản xạ cực nhanh trên mép lưới với vợt Prince composite</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_8cf45b71.png" alt="Tư thế thủ sẵn sàng đón bóng của tay vợt nữ" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Tư Thế Thủ Chuẩn Mực</strong>
+                  <span>Vững vàng trước vạch cấm volley sẵn sàng phản công</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_5b2dc31f.png" alt="Sân đấu Court 4 với đai lưới trung tâm" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Sân Đấu Tiêu Chuẩn Quốc Tế (Court 4)</strong>
+                  <span>Lưới căng 86.4cm với đai trung tâm và ô Kitchen tím nổi bật</span>
+                </div>
+              </div>
+
+              <div class="gallery-item">
+                <img src="/assets/aistudio/image_3b36b13f.png" alt="Pickleball Arena hiện đại" loading="lazy" />
+                <div class="gallery-caption">
+                  <strong>Pickleball Arena Chuyên Nghiệp</strong>
+                  <span>Mặt sân thảm acrylic đạt chuẩn thi đấu quốc tế</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Hướng Dẫn Luật Chơi Pickleball Chuẩn Quốc Tế -->
+        <div class="portal-tab-pane" id="pane-rules">
+          <div class="rules-tab-intro">
+            <h4 class="rules-main-title">📖 Luật Chơi Cơ Bản Cho Người Mới Bắt Đầu</h4>
+            <p class="rules-sub">5 quy tắc cốt lõi giúp bạn tự tin ra sân thi đấu chuẩn xác và tránh phạm lỗi</p>
+          </div>
+
+          <div class="rules-list-wrap">
+            <!-- Mục 1 -->
+            <div class="rule-card rule-card-blue">
+              <div class="rule-card-header">
+                <span class="rule-num">1</span>
+                <div class="rule-card-heading">
+                  <h3 class="rule-name">Kích Thước Sân và Dụng Cụ</h3>
+                  <span class="rule-tag">Court &amp; Equipment</span>
+                </div>
+              </div>
+              <ul class="rule-bullets">
+                <li><strong>Sân đấu:</strong> Hình chữ nhật kích thước chuẩn <strong>13,4m × 6,1m</strong> (đánh đơn và đánh đôi dùng chung kích thước).</li>
+                <li><strong>Lưới:</strong> Cao khoảng <strong>86,4cm</strong> ở giữa và <strong>91,4cm</strong> ở hai bên cột biên.</li>
+                <li><strong>Vợt và bóng:</strong> Vợt đặc chuyên dụng (làm từ sợi carbon hoặc sợi thủy tinh); bóng bằng nhựa đục <strong>40 lỗ tròn</strong> khí động học.</li>
+              </ul>
+            </div>
+
+            <!-- Mục 2 -->
+            <div class="rule-card rule-card-amber">
+              <div class="rule-card-header">
+                <span class="rule-num">2</span>
+                <div class="rule-card-heading">
+                  <h3 class="rule-name">Quy Tắc Giao Bóng Dưới Eo (Underhand Serve)</h3>
+                  <span class="rule-tag">Serve Rules</span>
+                </div>
+              </div>
+              <ul class="rule-bullets">
+                <li><strong>Tư thế:</strong> Đứng hoàn toàn sau vạch cuối sân (baseline), thực hiện cú đánh từ <strong>dưới tay (dưới thắt lưng/eo)</strong> theo hướng chéo sang phần sân đối diện.</li>
+                <li><strong>Khu vực rơi bóng:</strong> Bóng phải bay vượt qua vùng cấm (Kitchen) và rơi vào ô giao bóng chéo đối diện.</li>
+                <li><strong>Số lần:</strong> Mỗi lượt chỉ có <strong>1 lần giao bóng duy nhất</strong>.</li>
+              </ul>
+            </div>
+
+            <!-- Mục 3 -->
+            <div class="rule-card rule-card-cyan">
+              <div class="rule-card-header">
+                <span class="rule-num">3</span>
+                <div class="rule-card-heading">
+                  <h3 class="rule-name">Quy Tắc 2 Lần Nảy (Two-Bounce Rule)</h3>
+                  <span class="rule-tag">Two-Bounce Rule</span>
+                </div>
+              </div>
+              <div class="rule-diagram-badge">
+                <span class="diagram-step">① Giao bóng</span> ➔ 
+                <span class="diagram-step highlight">② Đội đỡ: ĐỂ BÓNG NẢY 1 LẦN</span> ➔ 
+                <span class="diagram-step highlight">③ Đội giao: ĐỂ BÓNG NẢY 1 LẦN</span> ➔ 
+                <span class="diagram-step success">④ Từ quả 4+: Được Volley!</span>
+              </div>
+              <ul class="rule-bullets">
+                <li>Sau khi giao bóng, đội đỡ <strong>phải để bóng nảy 1 lần</strong> trên mặt sân trước khi đánh trả.</li>
+                <li>Sau đó, đội giao bóng <strong>tiếp tục phải để bóng nảy 1 lần nữa</strong> phía bên sân mình trước khi được phép đánh trả.</li>
+                <li>Kể từ cú đánh thứ ba trở đi, người chơi có thể đánh trực tiếp trên không (volley) hoặc để bóng nảy 1 lần.</li>
+              </ul>
+            </div>
+
+            <!-- Mục 4 -->
+            <div class="rule-card rule-card-green">
+              <div class="rule-card-header">
+                <span class="rule-num">4</span>
+                <div class="rule-card-heading">
+                  <h3 class="rule-name">Vùng Cấm Volley (The Kitchen / Non-Volley Zone)</h3>
+                  <span class="rule-tag">Non-Volley Zone (7 ft / 2,13m)</span>
+                </div>
+              </div>
+              <ul class="rule-bullets">
+                <li>Là khu vực rộng <strong>2,13m</strong> tính từ lưới về mỗi bên sân (vùng màu xanh ngọc trên sân).</li>
+                <li><strong>Quy tắc:</strong> Người chơi <strong>không được phép đứng trong khu vực này</strong> để thực hiện cú đánh volley (đánh bóng khi bóng chưa nảy xuống sân).</li>
+                <li><strong>Đà di chuyển:</strong> Kể cả đà đánh bóng khiến chân chạm vào vạch hoặc bước vào vùng bếp cũng bị xem là phạm lỗi.</li>
+              </ul>
+            </div>
+
+            <!-- Mục 5 -->
+            <div class="rule-card rule-card-purple">
+              <div class="rule-card-header">
+                <span class="rule-num">5</span>
+                <div class="rule-card-heading">
+                  <h3 class="rule-name">Cách Tính Điểm (Side-Out Scoring)</h3>
+                  <span class="rule-tag">Scoring System</span>
+                </div>
+              </div>
+              <ul class="rule-bullets">
+                <li><strong>Quyền ghi điểm:</strong> <strong>Chỉ bên nào đang cầm quyền giao bóng mới có thể ghi điểm</strong>. Nếu bên đỡ thắng pha bóng, họ chỉ đổi lại lượt giao bóng (Side-Out).</li>
+                <li><strong>Điểm số thắng:</strong> Ván đấu chạm mốc <strong>11 điểm</strong> (hoặc 5 điểm với chế độ nhanh) và đội thắng phải dẫn trước đối thủ ít nhất <strong>2 điểm</strong>.</li>
+                <li><strong>Cách hô điểm (đánh đôi):</strong> Điểm số được hô gồm 3 con số: <em>Điểm đội giao - Điểm đội đỡ - Số thứ tự người giao bóng (1 hoặc 2)</em>. Ví dụ: <strong>4 - 2 - 1</strong>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Cài Đặt Nút Điều Khiển & Phím Tắt -->
+        <div class="portal-tab-pane" id="pane-controls">
+          <div class="controls-settings-section">
+            <h4 class="section-heading">🎮 Sơ Đồ Điều Khiển &amp; Phím Tắt</h4>
+            
+            <div class="controls-map-grid">
+              <div class="control-box">
+                <div class="control-badge">CHUỘT / CẢM ỨNG</div>
+                <div class="control-key-title">Di Chuột &amp; Vung Vợt</div>
+                <div class="control-desc">Di chuyển chuột theo hướng bóng để căn góc tiếp xúc; bấm chuột trái hoặc vung tay để đánh bóng.</div>
+              </div>
+
+              <div class="control-box">
+                <div class="control-badge">PHÍM SPACE</div>
+                <div class="control-key-title">Giao Bóng / Đánh Bóng</div>
+                <div class="control-desc">Tung bóng giao dưới eo hoặc vung vợt đánh trả tức thì khi bóng vào tầm.</div>
+              </div>
+
+              <div class="control-box highlight">
+                <div class="control-badge">PHÍM 1 – 5</div>
+                <div class="control-key-title">Chọn Cú Đánh Pickleball</div>
+                <div class="control-keys-chips">
+                  <span><strong>1:</strong> Drive</span>
+                  <span><strong>2:</strong> Dink Bếp</span>
+                  <span><strong>3:</strong> Drop</span>
+                  <span><strong>4:</strong> Smash</span>
+                  <span><strong>5:</strong> Lob</span>
+                </div>
+              </div>
+
+              <div class="control-box">
+                <div class="control-badge">PHÍM C</div>
+                <div class="control-key-title">Đổi Góc Quay Camera</div>
+                <div class="control-desc">Chuyển đổi linh hoạt giữa góc Rally, Giao bóng, Cận cảnh lưới và Toàn cảnh sân.</div>
+              </div>
+
+              <div class="control-box">
+                <div class="control-badge">PHÍM R</div>
+                <div class="control-key-title">Xem Lại Pha Bóng (Replay)</div>
+                <div class="control-desc">Kích hoạt chế độ tua chậm Instant Replay với hiệu ứng camera nghệ thuật.</div>
+              </div>
+
+              <div class="control-box">
+                <div class="control-badge">PHÍM H / F1</div>
+                <div class="control-key-title">Bật/Tắt Sổ Tay &amp; Cài Đặt</div>
+                <div class="control-desc">Mở nhanh bảng điều khiển, hướng dẫn luật và tùy chỉnh sân đấu bất cứ lúc nào.</div>
+              </div>
+            </div>
+
+            <!-- Tùy Chỉnh Độ Nhạy & Trợ Lực -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">🎚️ Tùy Chỉnh Trợ Lực &amp; Độ Nhạy</h5>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Độ nhạy vung vợt (Swing Sensitivity)</div>
+                  <div class="setting-desc">Tăng độ nhạy giúp phản xạ nhanh với các pha bóng tốc độ cao.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <input type="range" id="slider-sensitivity" min="0.5" max="2.0" step="0.1" value="1.0" class="portal-range" />
+                  <span id="label-sensitivity" class="slider-val">1.0x</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Trợ lực điểm ngọt (Sweet Spot Assist)</div>
+                  <div class="setting-desc">Tự động căn chỉnh nhẹ khi bóng chạm tâm vợt giúp đường bóng ổn định.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <label class="portal-switch">
+                    <input type="checkbox" id="toggle-sweet-spot" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Điều khiển chuyển động Webcam &amp; Điện thoại</div>
+                  <div class="setting-desc">Sử dụng camera máy tính hoặc điện thoại quét mã QR để vung vợt thật.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <button type="button" class="portal-btn-sm" id="btn-setting-webcam">Bật Webcam Motion</button>
+                  <button type="button" class="portal-btn-sm" id="btn-setting-companion">Quét QR Phone</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: Cài Đặt Âm Thanh, Ánh Sáng, Hò Hét & Cổ Vũ Khán Giả -->
+        <div class="portal-tab-pane" id="pane-stage">
+          <div class="stage-settings-section">
+            
+            <!-- Âm Thanh -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">🔊 Âm Thanh Sân Đấu (Audio &amp; SFX)</h5>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Âm lượng Nhạc nền Lyria 3 (BGM)</div>
+                  <div class="setting-desc">Giai điệu thể thao tràn đầy năng lượng của đấu trường Hachihi.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <input type="range" id="slider-music-vol" min="0" max="100" value="65" class="portal-range" />
+                  <span id="label-music-vol" class="slider-val">65%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Âm lượng Tiếng Vợt Pop / Clack (SFX)</div>
+                  <div class="setting-desc">Âm thanh nổ giòn đặc trưng khi mặt vợt composite tiếp xúc bóng wiffle.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <input type="range" id="slider-sfx-vol" min="0" max="100" value="85" class="portal-range" />
+                  <span id="label-sfx-vol" class="slider-val">85%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Tiếng Còi Trọng Tài (Referee Whistle)</div>
+                  <div class="setting-desc">Âm còi hai âm điệu chuẩn thi đấu điều hành trận đấu.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <button type="button" class="portal-btn-sound" id="btn-test-whistle">
+                    <span>📢 Thổi Còi Trọng Tài</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hò Hét & Cổ Vũ Khán Giả -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">📣 Hò Hét, Cổ Vũ Khán Giả &amp; Khí Thế Trận Đấu</h5>
+              
+              <div class="cheer-buttons-grid">
+                <button type="button" class="cheer-btn" id="btn-cheer-clap">
+                  <span class="cheer-emoji">👏</span>
+                  <span class="cheer-label">Vỗ Tay Rộn Rã</span>
+                </button>
+                <button type="button" class="cheer-btn" id="btn-cheer-roar">
+                  <span class="cheer-emoji">🎉</span>
+                  <span class="cheer-label">Hoan Hô Bùng Nổ</span>
+                </button>
+                <button type="button" class="cheer-btn highlight" id="btn-cheer-hachihi">
+                  <span class="cheer-emoji">🔥</span>
+                  <span class="cheer-label">Hò Hét: "Hachihi Cố Lên!"</span>
+                </button>
+              </div>
+
+              <div class="setting-row" style="margin-top: 14px;">
+                <div class="setting-info">
+                  <div class="setting-title">Mức độ náo nhiệt của khán đài</div>
+                  <div class="setting-desc">Quyết định năng lượng phản ứng và tiếng reo hò của khán giả Mii.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <div class="radio-pill-group" id="cheer-level-group">
+                    <button type="button" class="radio-pill" data-level="calm">Êm Dịu</button>
+                    <button type="button" class="radio-pill selected" data-level="normal">Tiêu Chuẩn</button>
+                    <button type="button" class="radio-pill" data-level="wild">Chảo Lửa 🔥</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ánh Sáng Sân Khấu -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">💡 Ánh Sáng Sân Đấu (Stadium Lighting Presets)</h5>
+              <div class="lighting-presets-grid">
+                <button type="button" class="lighting-card selected" data-lighting="day">
+                  <span class="lighting-icon">☀️</span>
+                  <div class="lighting-info">
+                    <div class="lighting-title">Ban Ngày Rực Rỡ</div>
+                    <div class="lighting-desc">Ánh nắng tự nhiên trong vắt trên sân ngoài trời</div>
+                  </div>
+                </button>
+
+                <button type="button" class="lighting-card" data-lighting="night">
+                  <span class="lighting-icon">🏟️</span>
+                  <div class="lighting-info">
+                    <div class="lighting-title">Đèn Cao Áp Ban Đêm</div>
+                    <div class="lighting-desc">Dàn đèn floodlight rực sáng chuẩn trận chung kết</div>
+                  </div>
+                </button>
+
+                <button type="button" class="lighting-card" data-lighting="sunset">
+                  <span class="lighting-icon">🌅</span>
+                  <div class="lighting-info">
+                    <div class="lighting-title">Hoàng Hôn Thanh Đa</div>
+                    <div class="lighting-desc">Ánh tà dương vàng cam ấm áp ven sông Sài Gòn</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Hiệu Ứng Sân Khấu & Kỷ Niệm -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">🎆 Hiệu Ứng Sân Khấu &amp; Ăn Mừng</h5>
+              
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Bắn Pháo Hoa Giấy Ăn Mừng (Confetti Cannon)</div>
+                  <div class="setting-desc">Bung pháo giấy sắc màu rực rỡ khắp sân đấu ăn mừng điểm đẹp.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <button type="button" class="portal-btn-confetti" id="btn-fire-confetti">
+                    <span>🎊 Bắn Pháo Hoa Giấy</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Vệt sáng đường bóng (Ball Dynamic Trail VFX)</div>
+                  <div class="setting-desc">Vệt sáng kinetic hiển thị quỹ đạo xoáy Topspin/Slice/Dink.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <label class="portal-switch">
+                    <input type="checkbox" id="toggle-ball-trail" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Portal Footer -->
+      <div class="portal-footer">
+        <button type="button" class="btn-portal-confirm" id="btn-close-portal-footer">
+          <span class="hand-cursor-icon">🏓</span>
+          <span>Vào Sân Thi Đấu Ngay!</span>
+        </button>
+      </div>
+    </div>
+  <!-- Tank Battle 1990 Style Multiplayer Room Lobby Modal -->
+  <div id="room-lobby-modal" class="wii-modal-backdrop hidden">
+    <div class="tank-lobby-card">
+      <!-- Modal Header: Tank Battle Style -->
+      <div class="tank-header">
+        <div class="tank-header-badge">
+          <span class="tank-square yellow">■</span>
+          <span class="tank-header-title">PICKLEBALL HACHIHI 2026</span>
+          <span class="tank-square green">■</span>
+        </div>
+        <p class="tank-header-sub">Đấu Trường Pickleball Huyền Thoại • Đối Kháng 2 Đội &amp; Quyết Đấu Lên Đến 4 Người</p>
+        
+        <div class="tank-player-name-row">
+          <label for="tank-player-name-input">Tên của bạn:</label>
+          <input type="text" id="tank-player-name-input" class="tank-input-name" maxlength="16" value="Hachihi Pro" />
+          <button type="button" class="tank-close-x" id="btn-close-lobby-x" title="Đóng">✕</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Main Body -->
+      <div class="tank-scroll-body">
+        
+        <!-- SECTION 1: MÃ PHÒNG (5 CHỮ SỐ) & THÔNG TIN CHIA SẺ -->
+        <div class="tank-section-box tank-room-info-card">
+          <div class="room-col-box room-col-code">
+            <span class="room-col-label">MÃ PHÒNG (5 CHỮ SỐ):</span>
+            <div class="room-code-display">
+              <span class="room-code-number" id="lobby-room-code-val">10150</span>
+              <div class="room-code-actions">
+                <span class="room-status-pill online">● CỔNG KHU (MỞ)</span>
+                <button type="button" id="btn-copy-room-code" class="btn-tank-copy">
+                  <span>📋 Sao chép mã</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="room-col-box room-col-visibility">
+            <span class="room-col-label">HIỂN THỊ PHÒNG:</span>
+            <label class="tank-toggle-switch">
+              <input type="checkbox" id="lobby-public-toggle" checked />
+              <span class="tank-slider"></span>
+              <span class="toggle-text" id="lobby-public-text">MỞ (CÔNG KHAI)</span>
+            </label>
+          </div>
+
+          <div class="room-col-box room-col-players">
+            <span class="room-col-label">SỐ LƯỢNG NGƯỜI CHƠI:</span>
+            <div class="room-players-display">
+              <strong class="players-fraction"><span id="lobby-current-players">1</span> / <span id="lobby-max-players">4</span></strong>
+              <button type="button" id="btn-copy-lobby-link" class="btn-tank-share">
+                <span>🔗 Sao chép link mời</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tank-tip-banner">
+          <span class="tip-icon">💡</span>
+          <span>Chủ phòng có thể chuyển người chơi giữa 2 đội, bấm nút thêm Máy (Bot) bên dưới hoặc nhấn Bắt đầu khi sẵn sàng.</span>
+        </div>
+
+        <!-- SECTION 2: TÙY CHỈNH 2 ĐỘI (A vs B) -->
+        <div class="tank-section-box tank-teams-panel">
+          <div class="tank-section-heading">
+            <span class="heading-icon">⚙</span>
+            <span>TÙY CHỈNH 2 ĐỘI</span>
+          </div>
+
+          <div class="teams-container-grid">
+            <!-- ĐỘI A -->
+            <div class="tank-team-box team-a-box">
+              <div class="team-box-header">
+                <div class="team-header-left">
+                  <span class="team-color-indicator" id="team-a-indicator" style="background-color: #ffea28;"></span>
+                  <input type="text" id="input-team-a-name" class="team-name-input" value="Đội A (Sân Nhà)" maxlength="16" />
+                  <span class="team-edit-icon" title="Nhấp để đổi tên đội">✏️</span>
+                </div>
+                <div class="team-header-right">
+                  <span class="team-members-tag"><span id="team-a-count">2</span> người/máy</span>
+                  <button type="button" class="btn-add-bot-mini" id="btn-add-bot-team-a" data-team="A">
+                    <span>🤖 + Thêm Máy</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Color Palette for Team A -->
+              <div class="team-color-palette" id="team-a-palette">
+                <button type="button" class="color-swatch active" data-color="#ffea28" style="background: #ffea28;"></button>
+                <button type="button" class="color-swatch" data-color="#ff9800" style="background: #ff9800;"></button>
+                <button type="button" class="color-swatch" data-color="#0284c7" style="background: #0284c7;"></button>
+                <button type="button" class="color-swatch" data-color="#7c3aed" style="background: #7c3aed;"></button>
+                <button type="button" class="color-swatch" data-color="#22c55e" style="background: #22c55e;"></button>
+                <button type="button" class="color-swatch" data-color="#ef4444" style="background: #ef4444;"></button>
+                <button type="button" class="color-swatch" data-color="#06b6d4" style="background: #06b6d4;"></button>
+                <button type="button" class="color-swatch" data-color="#ffffff" style="background: #ffffff;"></button>
+              </div>
+
+              <!-- Team A Member Slots -->
+              <div class="team-members-list" id="team-a-members">
+                <!-- Slot A1 (Host Human) -->
+                <div class="tank-member-row host-member" id="row-slot-A1">
+                  <div class="member-info-col">
+                    <span class="member-prefix">P1</span>
+                    <strong class="member-name" id="name-A1">Hachihi Pro</strong>
+                    <span class="member-role-badge host-badge">[Chủ phòng]</span>
+                    <span class="member-status-badge ready">SẴN SÀNG</span>
+                  </div>
+                  <div class="member-actions-col">
+                    <button type="button" class="btn-switch-team" data-slot="A1" title="Chuyển sang Đội B">⇄ Đội B</button>
+                  </div>
+                </div>
+
+                <!-- Slot A2 (Partner: Bot or Human) -->
+                <div class="tank-member-row" id="row-slot-A2">
+                  <div class="member-info-col">
+                    <span class="member-prefix">P2</span>
+                    <strong class="member-name" id="name-A2">Maya (AI)</strong>
+                    <span class="member-role-badge bot-badge" id="badge-A2">[Máy Bot]</span>
+                    <span class="member-status-badge ready">SẴN SÀNG</span>
+                  </div>
+                  <div class="member-actions-col">
+                    <button type="button" class="btn-switch-team" data-slot="A2" title="Chuyển sang Đội B">⇄ Đội B</button>
+                    <button type="button" class="btn-toggle-slot-type" data-slot="A2" title="Đổi Máy/Người">Đổi</button>
+                    <button type="button" class="btn-remove-slot" data-slot="A2" title="Xóa slot">✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ĐỘI B -->
+            <div class="tank-team-box team-b-box">
+              <div class="team-box-header">
+                <div class="team-header-left">
+                  <span class="team-color-indicator" id="team-b-indicator" style="background-color: #0284c7;"></span>
+                  <input type="text" id="input-team-b-name" class="team-name-input" value="Đội B (Đối Thủ)" maxlength="16" />
+                  <span class="team-edit-icon" title="Nhấp để đổi tên đội">✏️</span>
+                </div>
+                <div class="team-header-right">
+                  <span class="team-members-tag"><span id="team-b-count">2</span> người/máy</span>
+                  <button type="button" class="btn-add-bot-mini" id="btn-add-bot-team-b" data-team="B">
+                    <span>🤖 + Thêm Máy</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Color Palette for Team B -->
+              <div class="team-color-palette" id="team-b-palette">
+                <button type="button" class="color-swatch" data-color="#ffea28" style="background: #ffea28;"></button>
+                <button type="button" class="color-swatch" data-color="#ff9800" style="background: #ff9800;"></button>
+                <button type="button" class="color-swatch active" data-color="#0284c7" style="background: #0284c7;"></button>
+                <button type="button" class="color-swatch" data-color="#7c3aed" style="background: #7c3aed;"></button>
+                <button type="button" class="color-swatch" data-color="#22c55e" style="background: #22c55e;"></button>
+                <button type="button" class="color-swatch" data-color="#ef4444" style="background: #ef4444;"></button>
+                <button type="button" class="color-swatch" data-color="#06b6d4" style="background: #06b6d4;"></button>
+                <button type="button" class="color-swatch" data-color="#ffffff" style="background: #ffffff;"></button>
+              </div>
+
+              <!-- Team B Member Slots -->
+              <div class="team-members-list" id="team-b-members">
+                <!-- Slot B1 -->
+                <div class="tank-member-row" id="row-slot-B1">
+                  <div class="member-info-col">
+                    <span class="member-prefix">P3</span>
+                    <strong class="member-name" id="name-B1">Matt (AI)</strong>
+                    <span class="member-role-badge bot-badge" id="badge-B1">[Máy Bot]</span>
+                    <span class="member-status-badge ready">SẴN SÀNG</span>
+                  </div>
+                  <div class="member-actions-col">
+                    <button type="button" class="btn-switch-team" data-slot="B1" title="Chuyển sang Đội A">⇄ Đội A</button>
+                    <button type="button" class="btn-toggle-slot-type" data-slot="B1" title="Đổi Máy/Người">Đổi</button>
+                    <button type="button" class="btn-remove-slot" data-slot="B1" title="Xóa slot">✕</button>
+                  </div>
+                </div>
+
+                <!-- Slot B2 -->
+                <div class="tank-member-row" id="row-slot-B2">
+                  <div class="member-info-col">
+                    <span class="member-prefix">P4</span>
+                    <strong class="member-name" id="name-B2">Akira (AI)</strong>
+                    <span class="member-role-badge bot-badge" id="badge-B2">[Máy Bot]</span>
+                    <span class="member-status-badge ready">SẴN SÀNG</span>
+                  </div>
+                  <div class="member-actions-col">
+                    <button type="button" class="btn-switch-team" data-slot="B2" title="Chuyển sang Đội A">⇄ Đội A</button>
+                    <button type="button" class="btn-toggle-slot-type" data-slot="B2" title="Đổi Máy/Người">Đổi</button>
+                    <button type="button" class="btn-remove-slot" data-slot="B2" title="Xóa slot">✕</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: CHẾ ĐỘ CHIẾN ĐẤU (CHỦ PHÒNG CHỌN) -->
+        <div class="tank-section-box">
+          <div class="tank-section-heading">
+            <span class="heading-icon">⚔️</span>
+            <span>CHẾ ĐỘ CHIẾN ĐẤU (CHỦ PHÒNG CHỌN):</span>
+          </div>
+
+          <div class="tank-mode-cards-grid">
+            <div class="tank-mode-card active" id="tank-mode-doubles" data-mode="doubles">
+              <div class="mode-card-top">
+                <span class="mode-icon">⚔️</span>
+                <strong class="mode-title">ĐỐI KHÁNG 2 ĐỘI (A VS B - 2V2 ĐÔI)</strong>
+              </div>
+              <p class="mode-desc">Chia 2 đội (tối đa 4 người/máy). Phối hợp dâng bếp, bọc lót bóng sâu và smash dứt điểm.</p>
+            </div>
+
+            <div class="tank-mode-card" id="tank-mode-singles" data-mode="singles">
+              <div class="mode-card-top">
+                <span class="mode-icon">🤺</span>
+                <strong class="mode-title">PVP QUYẾT ĐẤU 1V1 (ĐƠN 1-1)</strong>
+              </div>
+              <p class="mode-desc">P1 vs P2 đối đầu trực diện một chọi một, bao quát toàn sân, chuẩn luật Side-Out quốc tế.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: TỐC ĐỘ / CẤP ĐỘ MÁY (BOT) -->
+        <div class="tank-section-box">
+          <div class="tank-section-heading">
+            <span class="heading-icon">⚡</span>
+            <span>TỐC ĐỘ &amp; CẤP ĐỘ MÁY (BOT):</span>
+            <span class="heading-badge" id="tank-speed-badge">CẤP 3 [CHUẨN] - 1.0x</span>
+          </div>
+
+          <div class="tank-speed-row" id="tank-speed-group">
+            <button type="button" class="btn-speed-item" data-speed="1"><span>1<br><small>Chậm</small></span></button>
+            <button type="button" class="btn-speed-item" data-speed="2"><span>2<br><small>Vừa</small></span></button>
+            <button type="button" class="btn-speed-item active" data-speed="3"><span>3<br><small>Chuẩn</small></span></button>
+            <button type="button" class="btn-speed-item" data-speed="4"><span>4<br><small>Nhanh</small></span></button>
+            <button type="button" class="btn-speed-item" data-speed="5"><span>5<br><small>Turbo</small></span></button>
+          </div>
+          <div class="tank-speed-note">Chuẩn (Mặc định): Tốc độ phản xạ và quỹ đạo bóng Pickleball giải đấu Hachihi Open 2026.</div>
+        </div>
+
+        <!-- SECTION 5: TRÒ CHUYỆN PHÒNG (CHAT BOX) -->
+        <div class="tank-section-box tank-chat-box">
+          <div class="tank-chat-header">
+            <div class="chat-header-title">
+              <span class="chat-icon">💬</span>
+              <strong>TRÒ CHUYỆN PHÒNG (<span id="lobby-chat-count">1</span>)</strong>
+            </div>
+            <span class="chat-header-sub">Trò chuyện trực tiếp cùng đồng đội &amp; đối thủ</span>
+          </div>
+
+          <div class="tank-chat-messages" id="lobby-chat-messages">
+            <div class="chat-msg-row system">
+              <span class="msg-time">00:00</span>
+              <span class="msg-sender">[Hệ thống]:</span>
+              <span class="msg-content">Chào mừng bạn đến phòng Pickleball Hachihi! Hãy gửi lời chào đồng đội và đối thủ.</span>
+            </div>
+          </div>
+
+          <div class="tank-chat-input-bar">
+            <input type="text" id="lobby-chat-input" class="tank-input-chat" placeholder="Nhắn tin cho phòng (Enter để gửi)..." maxlength="120" />
+            <button type="button" id="btn-lobby-send-chat" class="btn-tank-send-chat">
+              <span>🚀 Gửi</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- CONDITION NOTICE STRIP -->
+        <div id="tank-condition-banner" class="tank-condition-banner ready">
+          <span class="condition-icon" id="tank-condition-icon">✅</span>
+          <span id="tank-condition-text">Đã đủ điều kiện! Chủ phòng có thể nhấn Bắt Đầu để vào sân thi đấu.</span>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer Action Buttons -->
+      <div class="tank-footer">
+        <button type="button" id="btn-tank-start-match" class="btn-tank-start-cta">
+          <span class="cta-icon">▶</span>
+          <span id="btn-tank-start-text">BẮT ĐẦU TRẬN ĐẤU</span>
+        </button>
+
+        <button type="button" id="btn-tank-leave-room" class="btn-tank-leave-cta">
+          <span>🚪 RỜI PHÒNG</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="companion-modal" class="wii-modal-backdrop hidden">
+    <div class="wii-dialog-box wii-companion-clean-dialog">
+      <div class="mp-dialog-header">
+        <h2 class="dialog-title">📱 Phone Controller</h2>
+        <span id="mp-active-status" class="mp-conn-tag">Scan QR</span>
+      </div>
+      <p class="dialog-desc">Scan with your phone camera</p>
+      <div id="mp-card-p1" class="mp-clean-qr-wrap">
+        <span id="mp-p1-status" class="hidden"></span>
+        <img id="companion-qr" src="https://www.gstatic.com/aistudio/starter-apps/tennis/qr/player1_qr.png" alt="Phone Controller QR" width="200" height="200" class="mp-qr-img" />
+        <a id="companion-link" href="/companion.html?room=default&role=p1" target="_blank" rel="noopener" class="mp-subtle-link">Open controller link ↗</a>
+      </div>
+      <div id="mp-card-p2" class="mp-clean-qr-wrap hidden">
+        <span id="mp-p2-status" class="hidden"></span>
+        <img id="companion-qr-p2" src="https://www.gstatic.com/aistudio/starter-apps/tennis/qr/player2_qr.png" alt="Phone Controller QR" width="200" height="200" class="mp-qr-img" />
+        <a id="companion-link-p2" href="/companion.html?room=default&role=p2" target="_blank" rel="noopener" class="mp-subtle-link">Open controller link ↗</a>
+      </div>
+      <div class="dialog-actions">
+        <button id="btn-close-companion" type="button" class="wii-pill-btn">Back to Court</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="victory-modal" class="wii-modal-backdrop hidden">
+    <div class="wii-skill-card">
+      <div class="skill-card-header" id="victory-card-header">Hachihi Club Skill Rating</div>
+      <div class="skill-card-body">
+        <div class="skill-chart-frame">
+          <canvas id="skill-graph-canvas" width="280" height="200"></canvas>
+        </div>
+        <div class="skill-mii-summary">
+          <div id="victory-result-banner" class="victory-result-banner">YOU WIN!</div>
+          <div class="skill-score-pill">
+            <canvas id="victory-mii-icon" width="192" height="192"></canvas>
+            <div class="skill-score-meta">
+              <div class="skill-rating-number" id="skill-rating-value">1120</div>
+              <div class="skill-player-name" id="victory-player-name">Hachihi Pro (+120)</div>
+            </div>
+          </div>
+          <div id="victory-match-score" class="victory-match-score">Final Games: 2 - 0</div>
+        </div>
+      </div>
+      <div class="skill-card-footer">
+        <button id="btn-play-again" type="button" class="wii-footer-btn primary"><span id="btn-play-again-text">Chơi lại</span></button>
+        <button id="btn-return-title" type="button" class="wii-footer-btn secondary"><span id="btn-menu-text">Trang chủ</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { renderAllHudMiiAvatars } from './src/mii_avatars.js';
+    renderAllHudMiiAvatars();
+  </script>
+  <script type="module" src="./src/game_engine.js"></script>
+</body>
+</html>
