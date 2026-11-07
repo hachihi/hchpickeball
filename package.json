@@ -1,5 +1,5 @@
 {
-  "name": "argon-tennis",
+  "name": "hachihi-pickleball",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -11,7 +11,8 @@
     "preview": "vite preview --port=3000 --host=0.0.0.0",
     "predev": "[ -d node_modules/.bin ] || bun install || npm install",
     "prebuild": "[ -d node_modules/.bin ] || bun install || npm install",
-    "prelint": "[ -d node_modules/.bin ] || bun install || npm install"
+    "prelint": "[ -d node_modules/.bin ] || bun install || npm install",
+    "test": "node scripts/test_pickleball_rules.mjs && node scripts/test_room_sync.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.8.0",
@@ -26,5 +27,8 @@
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,0 +1,42 @@
+/* Design tokens - Pickleball Hachihi (UI/UX spec v1.0, giai đoạn 1)
+   Code mới CHỈ dùng token, không viết mã hex hay px rời. Nạp trước styles.css. */
+:root{
+  /* Vai trò màu: mỗi màu chỉ có một nhiệm vụ */
+  --c-bg:#0a1a30;
+  --c-surface:#12263f;
+  --c-surface-2:#1a3354;
+  --c-line:rgba(255,255,255,.14);
+  --c-action:#ccff00;      /* CHỈ nút hành động chính */
+  --c-select:#25a8f5;      /* trạng thái chọn, thông tin */
+  --c-score:#ffea28;       /* điểm, thành tích, game point */
+  --c-good:#3ddc84;        /* sẵn sàng, cú đánh tốt */
+  --c-warn:#ffb020;        /* cảnh báo, cú sớm/muộn */
+  --c-danger:#ef4444;      /* thoát, xóa, lỗi */
+  --c-text:#f1f5f9;
+  --c-text-2:#b6c4d8;
+  --c-on-action:#071326;
+
+  /* Thang chữ 6 bậc, không nhỏ hơn 12px */
+  --fs-12:12px; --fs-14:14px; --fs-16:16px;
+  --fs-20:20px; --fs-28:28px; --fs-40:40px;
+  --font-body:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-display:'Baloo 2','Be Vietnam Pro',system-ui,sans-serif;
+
+  /* Khoảng cách (bội số của 4) và bo góc */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+
+  /* Kích thước chạm */
+  --tap:44px;
+  --tap-lg:56px;
+
+  /* Lớp xếp chồng */
+  --z-hud:10; --z-dock:20; --z-controls:30;
+  --z-sheet:40; --z-modal:50; --z-toast:60; --z-overlay:90;
+
+  /* Chuyển động */
+  --t-fast:120ms; --t-base:200ms; --ease:cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

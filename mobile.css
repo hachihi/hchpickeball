@@ -26,8 +26,8 @@ html.is-touch .mii-avatar-badge{width:30px;height:30px}
 html.is-touch .mii-avatar-badge.secondary-mii{width:26px;height:26px}
 html.is-touch .score-center-display{min-width:0;padding:0 6px;gap:6px;font-size:22px}
 html.is-touch .score-center-display.deuce-mode{font-size:17px}
-html.is-touch .opponent-presence-pill{top:54px;font-size:11px;padding:3px 10px}
-html.is-touch .hud-pause-btn{min-width:40px;min-height:40px}
+html.is-touch .opponent-presence-pill{top:54px;font-size:12px;padding:3px 10px}
+html.is-touch .hud-pause-btn{min-width:44px;min-height:44px}
 
 /* ---- Thanh nút tiện ích bên phải: Menu + Toàn màn hình ---- */
 #mx-tools{
@@ -69,7 +69,7 @@ html.is-touch body #bottom-right-dock{
   left:50%;right:auto;transform:translateX(-50%);
   bottom:max(8px,env(safe-area-inset-bottom));width:auto;align-items:center}
 html.is-touch #timing-gauge-card{width:196px;max-width:34vw;padding:4px 8px 6px}
-html.is-touch .gauge-header{font-size:9px;margin-bottom:3px}
+html.is-touch .gauge-header{font-size:12px;margin-bottom:3px}
 html.is-touch .timing-bar-track{height:12px}
 html.is-touch .wii-replay-badge{bottom:max(14px,env(safe-area-inset-bottom));left:max(12px,env(safe-area-inset-left))}
 

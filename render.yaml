@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: hachihi-pickleball
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm test && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 22

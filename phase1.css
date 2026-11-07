@@ -1,0 +1,88 @@
+/* Giai đoạn 1 - sửa nhanh. Nạp SAU styles.css và mobile.css.
+   Lớp này thay thế dần rule cũ; khi một màn chuyển hẳn sang token thì xóa rule cũ tương ứng. */
+
+/* --- Font: thay Rounded Mplus/Trebuchet (không có @font-face) bằng font self-host --- */
+:root{--wii-font:var(--font-body)}
+.score-center-display,.center-banner-text,.victory-result-banner,.argon-logo-title,.skill-rating-number{font-family:var(--font-display)}
+.score-center-display{font-variant-numeric:tabular-nums}
+
+/* --- Focus nhìn thấy được cho bàn phím (thay các outline:none) --- */
+:focus-visible{outline:3px solid var(--c-select);outline-offset:2px}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--c-select);outline-offset:2px}
+
+/* --- Trạng thái nút dùng chung --- */
+button{-webkit-tap-highlight-color:transparent}
+button:active:not(:disabled){transform:scale(.97)}
+button:disabled,button[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+
+/* --- Vùng chạm tối thiểu 44px cho nút trong lobby, modal, HUD --- */
+.hud-mini-btn,.hud-pause-btn,.btn-switch-team,.btn-toggle-slot-type,.btn-add-bot-mini,.btn-add-bot-slot-quick,
+.btn-speed-item,.btn-tank-leave-cta,.btn-tank-start-cta,.wii-footer-btn,.wii-pill-btn,.pause-action-btn,.shot-chip{min-height:var(--tap)}
+.btn-remove-slot{min-width:var(--tap);min-height:var(--tap);width:var(--tap);height:var(--tap);font-size:var(--fs-16);border-radius:var(--r-sm)}
+.btn-speed-item{min-width:var(--tap)}
+.btn-tank-start-cta{min-height:var(--tap-lg)}
+.btn-tank-start-cta:not(.disabled){background:var(--c-action);color:var(--c-on-action);border-color:transparent;box-shadow:0 0 14px rgba(204,255,0,.35)}
+
+/* --- Lobby: chống vỡ dòng --- */
+.member-role-badge,.member-status-badge,.member-prefix,.btn-switch-team,.btn-toggle-slot-type,
+.btn-add-bot-mini,.btn-add-bot-slot-quick,.btn-speed-item,.btn-tank-start-cta,.btn-tank-leave-cta,
+.heading-badge,.chip{white-space:nowrap}
+.member-status-badge{display:inline-flex;align-items:center;padding:2px 8px;line-height:1.4}
+.member-role-badge{display:inline-flex;align-items:center;font-size:var(--fs-12)}
+.tank-member-row{flex-wrap:nowrap;min-height:56px}
+.member-info-col{min-width:0;flex:1 1 auto;gap:var(--sp-2)}
+.member-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.member-actions-col{flex:0 0 auto;gap:var(--sp-2)}
+/* Màn hẹp: cho phép thẻ slot xuống hàng theo KHỐI (không bẻ chữ trong chip) */
+@media (max-width:480px){
+  .tank-member-row{flex-wrap:wrap;row-gap:var(--sp-2)}
+  .member-info-col{flex:1 1 100%}
+  .member-actions-col{flex:1 1 100%;justify-content:flex-end}
+}
+
+/* --- Nút Bắt đầu cố định ở đáy lobby: nội dung cuộn, footer luôn thấy --- */
+.tank-footer{position:sticky;bottom:0;z-index:var(--z-dock);padding:var(--sp-3) var(--sp-4);
+  padding-bottom:calc(var(--sp-3) + env(safe-area-inset-bottom,0px));background:var(--c-surface);border-top:1px solid var(--c-line)}
+
+/* --- Nút vào sân ở màn chính luôn nhìn thấy (cố định dưới cùng trong modal cuộn) --- */
+.wii-title-card .wii-modal-actions{position:sticky;bottom:calc(-1 * var(--sp-4));z-index:var(--z-dock);
+  padding:var(--sp-3) 0 calc(var(--sp-2) + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg,rgba(245,250,255,0),#e4f2ff 38%)}
+
+/* --- HUD: bỏ nút Thoát ở dock (việc thoát nằm trong màn Pause) --- */
+.exit-match-btn{display:none}
+
+/* --- Ảnh gallery bị thiếu file sẽ được JS ẩn (xem index.html) --- */
+.img-missing{display:none}
+
+/* --- Lobby: mã phòng, pill trạng thái, nút sao chép, nút đóng --- */
+.room-code-number{white-space:nowrap;font-variant-numeric:tabular-nums}
+.room-status-pill{white-space:nowrap}
+.btn-tank-copy,#btn-copy-lobby-link,#btn-copy-lobby-qr-link,#btn-close-lobby-x{min-height:var(--tap);white-space:nowrap}
+#btn-close-lobby-x{min-width:var(--tap)}
+.tank-footer{flex-wrap:wrap;gap:var(--sp-2)}
+.btn-tank-start-cta{flex:1 1 200px;min-width:0}
+.btn-tank-leave-cta{flex:0 1 auto;padding-inline:var(--sp-4)}
+@media (max-width:480px){
+  .room-code-display{flex-wrap:wrap}
+  .room-code-number{font-size:clamp(24px,9vw,36px);letter-spacing:.08em}
+}
+
+/* --- Lobby: không cho lưới 2 đội tràn ngang (track 1fr mặc định = min-content) --- */
+.teams-container-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:680px){.teams-container-grid{grid-template-columns:minmax(0,1fr)}}
+.tank-team-box,.tank-member-row,.tank-scroll-body>*{min-width:0}
+.tank-member-row{max-width:100%}
+@media (max-width:480px){
+  .member-info-col{flex-wrap:wrap;row-gap:var(--sp-1)}
+  .member-name{flex:1 1 7ch;min-width:7ch}
+  .tank-teams-panel,.tank-team-box{padding-inline:var(--sp-2)}
+  .tank-scroll-body{padding-inline:var(--sp-3)}
+}
+
+/* --- Lobby: header đội (tên đội, số người, nút thêm bot) không vỡ chữ / không tràn --- */
+.team-box-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp-2)}
+.team-header-left{min-width:0;flex:1 1 140px}
+.team-name-input{min-width:0;flex:1 1 auto;min-height:var(--tap)}
+.team-header-right{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto;flex-wrap:wrap}
+.team-members-tag{white-space:nowrap}

@@ -1,0 +1,111 @@
+/* Giai đoạn 2 - HUD và Pause. Nạp sau phase1.css. Chỉ dùng token, không thêm !important.
+   Quy ước: desktop dùng html:not(.is-touch); cảm ứng giữ lớp mobile.css (đã có menu ☰ riêng). */
+
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- 2 nút luôn hiện: Pause + Menu ---------- */
+.hud-top-actions{position:absolute;top:var(--sp-3);right:var(--sp-3);display:flex;gap:var(--sp-2);pointer-events:auto;z-index:var(--z-controls)}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:var(--tap);height:var(--tap);min-width:var(--tap);padding:0;
+  border-radius:var(--r-md);border:1px solid var(--c-line);background:rgba(10,26,48,.82);color:var(--c-text);cursor:pointer;
+  backdrop-filter:blur(6px);transition:background var(--t-fast) var(--ease),transform var(--t-fast) var(--ease)}
+.btn-icon:hover{background:var(--c-surface-2)}
+.hud-pause-btn.btn-icon:hover{background:var(--c-select);color:var(--c-on-action)}
+.btn-icon .ico{display:block;pointer-events:none}
+html.is-touch .hud-top-actions{top:max(var(--sp-2),env(safe-area-inset-top));right:max(var(--sp-3),env(safe-area-inset-right))}
+html.is-touch #btn-hud-menu{display:none} /* cảm ứng dùng nút ☰ của mobile_ux.js (cùng class html.menu-open) */
+html.is-touch #mx-tools{top:calc(max(var(--sp-2),env(safe-area-inset-top)) + var(--tap) + var(--sp-2))}
+
+/* ---------- Menu sheet (dock cũ đã tách khỏi dock phải) ---------- */
+.hud-menu-sheet{display:none}
+html:not(.is-touch) .hud-menu-sheet{position:fixed;top:calc(var(--sp-3) + var(--tap) + var(--sp-2));right:var(--sp-3);width:280px;
+  max-height:calc(100dvh - 90px);overflow-y:auto;padding:var(--sp-3);border-radius:var(--r-lg);
+  background:var(--c-surface);border:1px solid var(--c-line);box-shadow:0 16px 40px rgba(0,0,0,.45);
+  pointer-events:auto;z-index:var(--z-sheet)}
+html:not(.is-touch).menu-open .hud-menu-sheet{display:block}
+html.is-touch .hud-menu-sheet{display:contents}
+html.is-touch .sheet-grab,html.is-touch .sheet-title{display:none}
+.sheet-grab{display:none}
+.sheet-title{font-family:var(--font-display);font-weight:700;font-size:var(--fs-16);color:var(--c-text-2);margin:0 0 var(--sp-2) var(--sp-1)}
+html:not(.is-touch) .hud-menu-sheet .bottom-left-dock{position:static;opacity:1;pointer-events:auto;display:block}
+html:not(.is-touch) .hud-menu-sheet .dock-pill-row{display:flex;flex-direction:column;align-items:stretch;gap:var(--sp-2)}
+html:not(.is-touch) .hud-menu-sheet .hud-mini-btn{justify-content:flex-start;width:100%;min-height:var(--tap);padding:var(--sp-2) var(--sp-4);
+  font-size:var(--fs-14);border-radius:var(--r-md);background:var(--c-surface-2);border-color:var(--c-line);white-space:nowrap}
+html:not(.is-touch) .hud-menu-sheet .hud-mini-btn:hover{border-color:var(--c-select);transform:none}
+.menu-key{margin-left:auto;font:700 var(--fs-12)/1 var(--font-body);color:var(--c-text-2);border:1px solid var(--c-line);border-radius:6px;padding:3px 7px}
+html.is-touch .menu-key{display:none}
+
+/* ---------- Bảng điểm ---------- */
+#top-hud-bar{justify-content:center;gap:var(--sp-3)}
+html:not(.is-touch) .wii-scoreboard-pill{height:48px;min-width:360px;padding:0 var(--sp-3);border:1px solid var(--c-line);
+  background:rgba(10,26,48,.86);backdrop-filter:blur(8px);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+html:not(.is-touch) .mii-avatar-badge{width:32px;height:32px}
+html:not(.is-touch) .mii-avatar-badge.secondary-mii{width:30px;height:30px}
+html:not(.is-touch) .score-center-display{font-size:var(--fs-28);line-height:1}
+.wii-games-pill{border:1px solid var(--c-line);background:rgba(10,26,48,.86);box-shadow:none}
+html:not(.is-touch) .game-bubble{width:16px;height:16px}
+.game-bubble.won{background:var(--c-score);border-color:var(--c-score);box-shadow:0 0 6px rgba(255,234,40,.6)}
+.score-center-display{text-shadow:none;color:var(--c-text);font-variant-numeric:tabular-nums}
+.score-center-display.deuce-mode{color:var(--c-score)}
+.server-badge{display:none} /* thay bằng chip "Giao bóng · người số N" */
+.mii-side{position:relative}
+#scoreboard-pill[data-server="player"] .mii-side-player::before,
+#scoreboard-pill[data-server="opponent"] .mii-side-opponent::before{content:"";position:absolute;top:-3px;width:10px;height:10px;border-radius:50%;
+  background:var(--c-score);box-shadow:0 0 6px var(--c-score);z-index:1}
+#scoreboard-pill[data-server="player"] .mii-side-player::before{left:-3px}
+#scoreboard-pill[data-server="opponent"] .mii-side-opponent::before{right:-3px}
+
+.server-chip{position:absolute;left:50%;top:calc(var(--sp-3) + 48px + var(--sp-2));transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;
+  height:24px;padding:0 var(--sp-3);border-radius:var(--r-pill);background:rgba(10,26,48,.82);border:1px solid var(--c-line);
+  font-size:var(--fs-12);font-weight:600;color:var(--c-text);white-space:nowrap;pointer-events:none}
+.server-dot{width:8px;height:8px;border-radius:50%;background:var(--c-score)}
+html.is-touch .server-chip{top:calc(max(var(--sp-2),env(safe-area-inset-top)) + 40px + var(--sp-1))}
+@media (max-width:768px){#server-chip-text{display:none}.server-chip::after{content:attr(data-short)}}
+.opponent-presence-pill{top:calc(var(--sp-3) + 48px + 24px + var(--sp-4))}
+html.is-touch .opponent-presence-pill{top:calc(max(var(--sp-2),env(safe-area-inset-top)) + 40px + 24px + var(--sp-2))}
+
+/* ---------- Dock dưới: timing gauge + chip cú đánh cùng một trục giữa ---------- */
+html:not(.is-touch) #bottom-right-dock{left:50%;right:auto;transform:translateX(-50%);bottom:var(--sp-6);align-items:center;gap:var(--sp-2)}
+.webcam-pip-card{position:fixed;left:var(--sp-3);bottom:var(--sp-3);z-index:var(--z-dock)}
+.timing-gauge-card{width:auto;padding:var(--sp-2) var(--sp-3) var(--sp-1);background:rgba(10,26,48,.86);border:1px solid var(--c-line);border-radius:var(--r-md)}
+.timing-bar-track{width:320px;max-width:84vw;height:16px;margin-bottom:22px;overflow:visible;border:1px solid var(--c-line);border-radius:var(--r-pill);
+  background:linear-gradient(90deg,var(--c-warn) 0 31.7%,var(--c-good) 31.7% 68.3%,var(--c-danger) 68.3% 100%)}
+.timing-zone{display:block;background:none;height:100%;padding-top:20px;text-align:center;white-space:nowrap;overflow:visible;
+  font-size:var(--fs-12);font-weight:700;line-height:1.2;color:var(--c-text-2);text-shadow:none}
+.zone-sweet{background:none;color:var(--c-good)}
+.timing-cursor{width:4px;top:-4px;bottom:-4px;border-radius:2px;background:var(--c-text);border:0;box-shadow:0 0 6px rgba(0,0,0,.6)}
+html.is-touch .timing-bar-track{width:240px;height:14px;margin-bottom:var(--sp-1)}
+html.is-touch .timing-zone{font-size:0;padding-top:0}
+html.is-touch #timing-gauge-card{width:auto;max-width:none}
+
+/* ---------- Chip chọn cú đánh ---------- */
+.shot-selector-bar{display:flex;gap:var(--sp-1);padding:var(--sp-1);border-radius:var(--r-pill);background:rgba(10,26,48,.86);border:1px solid var(--c-line)}
+.shot-chip{min-height:40px;padding:0 var(--sp-3);gap:var(--sp-2);font-size:var(--fs-14);color:var(--c-text-2)}
+.shot-chip.active{background:var(--c-select);border-color:transparent;color:var(--c-on-action)}
+.shot-chip-key{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;font-size:var(--fs-12);
+  border:1px solid currentColor;opacity:.8}
+
+/* ---------- Banner: 1 cái một lúc; lỗi/ra ngoài ở trên giữa ---------- */
+.center-banner-layer.banner-top{top:calc(var(--sp-3) + 48px + 24px + var(--sp-6));transform:none}
+.center-banner-layer.banner-top .center-banner-text{font-size:clamp(28px,3.6vw,44px)}
+html.is-touch .center-banner-layer.banner-top{top:calc(max(var(--sp-2),env(safe-area-inset-top)) + 40px + 24px + var(--sp-3))}
+@media (prefers-reduced-motion:reduce){.center-banner-text,.wii-timing-popup{animation:none}}
+
+/* ---------- Pause ---------- */
+.pause-modal-card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-lg);max-width:440px}
+.pause-modal-title{font-family:var(--font-display);font-size:var(--fs-20)}
+.pause-modal-actions{gap:var(--sp-2)}
+.pause-action-btn{min-height:var(--tap);background:var(--c-surface-2);border:1px solid var(--c-line);border-radius:var(--r-md)}
+.pause-action-btn:hover{transform:none;border-color:var(--c-select)}
+.pause-action-btn .action-text small{color:var(--c-text-2)}
+.pause-action-btn.btn-resume{min-height:var(--tap-lg);background:var(--c-action);border-color:transparent;color:var(--c-on-action)}
+.pause-action-btn.btn-resume:hover{background:var(--c-action);filter:brightness(1.06)}
+.pause-action-btn.btn-resume .action-text small{color:var(--c-on-action);opacity:.75}
+.pause-action-btn.btn-resume .action-icon{background:rgba(7,19,38,.14)}
+.pause-action-btn.btn-cancel-room,.pause-action-btn.btn-main-menu{background:transparent;border-color:var(--c-danger);color:var(--c-danger)}
+.pause-action-btn.btn-cancel-room .action-text small,.pause-action-btn.btn-main-menu .action-text small{color:var(--c-text-2)}
+.pause-action-btn.btn-cancel-room:hover,.pause-action-btn.btn-main-menu:hover{background:rgba(239,68,68,.12)}
+.pause-action-btn.armed{background:var(--c-danger);border-color:var(--c-danger);color:#fff}
+.pause-action-btn.armed .action-text small{color:#fff;font-weight:700}
+
+/* Nút tiện ích cảm ứng đạt 44px */
+#mx-tools button{width:var(--tap);height:var(--tap)}

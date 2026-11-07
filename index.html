@@ -24,8 +24,12 @@
       }
     })();
   </script>
+  <link rel="stylesheet" href="./fonts.css" />
+  <link rel="stylesheet" href="./tokens.css" />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./mobile.css" />
+  <link rel="stylesheet" href="./phase1.css" />
+  <link rel="stylesheet" href="./phase2.css" />
 </head>
 <body>
   <div id="root" class="hidden" aria-hidden="true"></div>
@@ -74,11 +78,22 @@
         <span class="game-bubble extra-slot hidden" data-slot="2"></span>
       </div>
 
-      <button id="btn-pause-exit-hud" class="hud-pause-btn" type="button" title="Tạm dừng / Thoát trận đấu (Phím Esc hoặc P)">
-        <span class="pause-icon">⏸</span>
-        <span class="pause-text" id="btn-pause-exit-text">Thoát Trận</span>
-      </button>
     </header>
+
+    <div id="hud-top-actions" class="hud-top-actions">
+      <button id="btn-pause-exit-hud" class="hud-pause-btn btn-icon" type="button" title="Tạm dừng (Esc hoặc P)" aria-label="Tạm dừng">
+        <svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/></svg>
+        <span class="pause-text sr-only" id="btn-pause-exit-text">Pause</span>
+      </button>
+      <button id="btn-hud-menu" class="hud-menu-btn btn-icon" type="button" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="hud-menu-sheet">
+        <svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+
+    <div id="server-chip" class="server-chip" role="status" aria-live="polite">
+      <span class="server-dot" aria-hidden="true"></span>
+      <span id="server-chip-text">Giao bóng · người số 2</span>
+    </div>
 
     <div id="opponent-presence-pill" class="opponent-presence-pill hidden" aria-live="polite">
       <span id="opponent-presence-dot" class="presence-dot"></span>
@@ -115,25 +130,25 @@
 
     <div id="bottom-right-dock" class="hud-corner-dock bottom-right-dock">
       <div class="shot-selector-bar" id="shot-selector-bar">
-        <button type="button" class="shot-chip active" data-shot="TOPSPIN" title="Cú Drive / Topspin (Phím 1)">
+        <button type="button" class="shot-chip active" data-shot="TOPSPIN" title="Cú Drive / Topspin (Phím 1): Cú đánh lớn cuộn xoáy topspin, bóng đi nhanh chúc xuống cuối sân, nảy vọt tới">
           <span>Drive</span><span class="shot-chip-key">1</span>
         </button>
-        <button type="button" class="shot-chip" data-shot="DINK" title="Cú Dink thả bóng vào bếp (Phím 2)">
+        <button type="button" class="shot-chip" data-shot="DINK" title="Cú Dink (Phím 2): Thả bóng mềm vào vùng bếp (NVZ), nảy thấp triệt tiêu lực tấn công">
           <span>Dink</span><span class="shot-chip-key">2</span>
         </button>
-        <button type="button" class="shot-chip" data-shot="SLICE" title="Cú Drop shot thứ 3 (Phím 3)">
-          <span>Drop</span><span class="shot-chip-key">3</span>
+        <button type="button" class="shot-chip" data-shot="SLICE" title="Cú Cắt / Drop Shot (Phím 3): Xoáy lùi (backspin), bóng đi chậm lơ lửng, nảy trượt là là và giảm tốc đột ngột">
+          <span>Cắt/Drop</span><span class="shot-chip-key">3</span>
         </button>
-        <button type="button" class="shot-chip" data-shot="FLAT" title="Cú Smash đập bóng (Phím 4)">
+        <button type="button" class="shot-chip" data-shot="FLAT" title="Cú Smash Đập bóng (Phím 4): Bóng đi cực nhanh và thấp! Lưu ý: Tỷ lệ vướng lưới cao nếu đánh quá thấp hoặc đứng xa lưới">
           <span>Smash</span><span class="shot-chip-key">4</span>
         </button>
-        <button type="button" class="shot-chip" data-shot="LOB" title="Cú Lob lốp bóng bổng (Phím 5)">
+        <button type="button" class="shot-chip" data-shot="LOB" title="Cú Lob Lốp bóng (Phím 5): Bóng đi chậm vồng cầu cao về cuối sân, tỷ lệ vướng lưới cực thấp">
           <span>Lob</span><span class="shot-chip-key">5</span>
         </button>
       </div>
 
       <div id="timing-gauge-card" class="timing-gauge-card">
-        <div class="gauge-header">
+        <div class="gauge-header sr-only" aria-live="polite">
           <span id="gauge-mode-title">ĐỘ CHUẨN VUNG VỢT</span>
           <span id="gauge-speed-readout">SẴN SÀNG</span>
         </div>
@@ -154,39 +169,44 @@
           </div>
         </div>
 
-        <div class="motion-buttons-col">
-          <button id="btn-webcam-toggle" class="hud-mini-btn motion-btn" type="button">
-            <span class="btn-dot" id="webcam-status-dot"></span><span id="btn-webcam-text">Webcam</span>
-          </button>
-          <button id="btn-phone-racket" class="hud-mini-btn motion-btn hidden" type="button">
-            <span class="btn-dot" id="phone-status-dot"></span><span id="phone-status-label">Pocket Paddle</span>
-          </button>
+      </div>
+    </div>
 
+    <div id="hud-menu-sheet" class="hud-menu-sheet" role="dialog" aria-label="Menu trận đấu">
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <div class="sheet-title">Menu</div>
           <div id="bottom-left-dock" class="hud-corner-dock bottom-left-dock">
-            <div class="dock-pill-row">
-              <button id="btn-lang-toggle" class="hud-mini-btn lang-toggle-btn" type="button" title="Chuyển đổi Tiếng Việt / English"><span>🇻🇳 VI</span></button>
-              <button id="btn-portal-hud" class="hud-mini-btn portal-hud-btn" type="button" title="Khám phá Giải Đấu Hachihi Open 2026"><span>🏆</span><span id="btn-portal-hud-text">Hachihi Open</span></button>
-              <button id="btn-rules-hud" class="hud-mini-btn rules-hud-btn" type="button" title="Xem sổ tay luật chơi Pickleball"><span>📋</span><span id="btn-rules-hud-text">Luật chơi</span></button>
-              <button id="btn-settings-hud" class="hud-mini-btn settings-hud-btn" type="button" title="Cài đặt Phím, Âm thanh & Ánh sáng"><span>⚙️</span><span id="btn-settings-hud-text">Cài đặt</span></button>
-              <button id="btn-audio-toggle" class="hud-mini-btn" type="button" title="Toggle Lyria 3 Soundtrack & SFX"><span class="btn-dot music-on" id="audio-status-dot"></span><span id="audio-track-label">Lyria: Sunny Rally</span></button>
-              <button id="btn-camera-cycle" class="hud-mini-btn" type="button" title="Cycle Camera Angle (C)"><span id="cam-label-prefix">Góc:</span><strong id="camera-mode-label">Rally</strong></button>
-              <button id="btn-replay-trigger" class="hud-mini-btn" type="button" title="Toggle Instant Replay (R)"><span id="btn-replay-text">Replay</span></button>
-              <button id="btn-exit-match" class="hud-mini-btn exit-match-btn" type="button" title="Thoát ván đấu về Menu (Esc hoặc P)"><span>🚪</span><span id="btn-exit-match-text">Thoát</span></button>
-              <button id="btn-multiplayer-modal" class="hud-mini-btn hidden" type="button" title="Open 1v1 Multiplayer"><span>💬 1v1</span></button>
-            </div>
-          </div>
+        <div class="dock-pill-row">
+      <button id="btn-webcam-toggle" class="hud-mini-btn" type="button">
+        <span class="btn-dot" id="webcam-status-dot"></span><span id="btn-webcam-text">Webcam</span>
+      </button>
+      <button id="btn-phone-racket" class="hud-mini-btn hidden" type="button">
+        <span class="btn-dot" id="phone-status-dot"></span><span id="phone-status-label">Pocket Paddle</span>
+      </button>
+
+          <button id="btn-lang-toggle" class="hud-mini-btn lang-toggle-btn" type="button" title="Chuyển đổi Tiếng Việt / English"><span>🇻🇳 VI</span></button>
+          <button id="btn-scenery-cycle" class="hud-mini-btn scenery-hud-btn" type="button" title="Đổi Sân Đấu Kỳ Quan (Landmark 81, Eiffel, Big Ben, Nha Trang...)"><span>🏟️</span><span id="scenery-label-hud">Landmark 81</span></button>
+          <button id="btn-portal-hud" class="hud-mini-btn portal-hud-btn" type="button" title="Khám phá Giải Đấu Hachihi Open 2026"><span>🏆</span><span id="btn-portal-hud-text">Hachihi Open</span></button>
+          <button id="btn-rules-hud" class="hud-mini-btn rules-hud-btn" type="button" title="Xem sổ tay luật chơi Pickleball"><span>📋</span><span id="btn-rules-hud-text">Luật chơi</span></button>
+          <button id="btn-settings-hud" class="hud-mini-btn settings-hud-btn" type="button" title="Cài đặt Phím, Âm thanh & Ánh sáng"><span>⚙️</span><span id="btn-settings-hud-text">Cài đặt</span></button>
+          <button id="btn-audio-toggle" class="hud-mini-btn" type="button" title="Toggle Lyria 3 Soundtrack & SFX"><span class="btn-dot music-on" id="audio-status-dot"></span><span id="audio-track-label">Lyria: Sunny Rally</span></button>
+          <button id="btn-camera-cycle" class="hud-mini-btn" type="button" title="Cycle Camera Angle (C)"><span id="cam-label-prefix">Góc:</span><strong id="camera-mode-label">Rally</strong><kbd class="menu-key">C</kbd></button>
+          <button id="btn-replay-trigger" class="hud-mini-btn" type="button" title="Toggle Instant Replay (R)"><span id="btn-replay-text">Replay</span><kbd class="menu-key">R</kbd></button>
+          <button id="btn-exit-match" class="hud-mini-btn exit-match-btn" type="button" title="Thoát ván đấu về Menu (Esc hoặc P)"><span>🚪</span><span id="btn-exit-match-text">Thoát</span></button>
+          <button id="btn-multiplayer-modal" class="hud-mini-btn hidden" type="button" title="Open 1v1 Multiplayer"><span>💬 1v1</span></button>
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- Pause & Exit Modal -->
   <div id="pause-exit-modal" class="wii-modal-backdrop hidden" aria-hidden="true">
-    <div class="pause-modal-card">
+    <div class="pause-modal-card" role="dialog" aria-modal="true" aria-labelledby="pause-modal-badge-text">
       <div class="pause-modal-header">
         <div class="pause-modal-badge">
           <span class="pause-badge-pulse">⏸</span>
-          <span id="pause-modal-badge-text">TẠM DỪNG TRẬN ĐẤU</span>
+          <span id="pause-modal-badge-text">TẠM DỪNG</span>
         </div>
         <h2 class="pause-modal-title">Pickleball Hachihi Open 2026</h2>
         <div id="pause-match-summary" class="pause-match-summary">
@@ -199,7 +219,7 @@
         <button type="button" id="btn-pause-resume" class="pause-action-btn btn-resume">
           <span class="action-icon">▶</span>
           <div class="action-text">
-            <strong id="txt-pause-resume-title">Tiếp Tục Thi Đấu</strong>
+            <strong id="txt-pause-resume-title">Tiếp tục</strong>
             <small id="txt-pause-resume-sub">Quay lại sân đánh bóng ngay (Esc hoặc P)</small>
           </div>
         </button>
@@ -207,7 +227,7 @@
         <button type="button" id="btn-pause-lobby" class="pause-action-btn btn-lobby">
           <span class="action-icon">👥</span>
           <div class="action-text">
-            <strong id="txt-pause-lobby-title">Sảnh Chờ &amp; Đội Hình (Lobby)</strong>
+            <strong id="txt-pause-lobby-title">Về sảnh</strong>
             <small id="txt-pause-lobby-sub">Đổi thể thức Đơn/Đôi, thêm/bớt BOT AI, mời người</small>
           </div>
         </button>
@@ -215,7 +235,7 @@
         <button type="button" id="btn-pause-restart" class="pause-action-btn btn-restart">
           <span class="action-icon">🔄</span>
           <div class="action-text">
-            <strong id="txt-pause-restart-title">Chơi Lại Ván Này</strong>
+            <strong id="txt-pause-restart-title">Chơi lại ván</strong>
             <small id="txt-pause-restart-sub">Đặt lại điểm số 0-0 và phát bóng lại từ đầu</small>
           </div>
         </button>
@@ -231,7 +251,7 @@
         <button type="button" id="btn-pause-main-menu" class="pause-action-btn btn-main-menu">
           <span class="action-icon">🏠</span>
           <div class="action-text">
-            <strong id="txt-pause-menu-title">Thoát Về Menu Chính</strong>
+            <strong id="txt-pause-menu-title">Thoát</strong>
             <small id="txt-pause-menu-sub">Dừng trận đấu và trở về trang chủ giải đấu</small>
           </div>
         </button>
@@ -435,6 +455,63 @@
             <button type="button" class="wii-green-choice selected" data-difficulty="casual"><span class="choice-main" id="choice-diff-casual">Dễ (Người mới)</span></button>
             <button type="button" class="wii-green-choice" data-difficulty="pro"><span class="choice-main" id="choice-diff-pro">Vừa (Chuẩn)</span></button>
             <button type="button" class="wii-green-choice" data-difficulty="1v1"><span class="choice-main" id="choice-diff-1v1">Khó (Pro)</span></button>
+          </div>
+        </div>
+
+        <div class="setup-section" id="solo-scenery-section">
+          <div class="scenery-picker-header">
+            <label class="setup-label">🏟️ Chọn Sân Đấu Kỳ Quan / Court Scenery:</label>
+            <span class="scenery-active-badge" id="solo-selected-scenery-name">🏙️ Landmark 81 (TP.HCM)</span>
+          </div>
+          <div class="scenery-cards-grid" id="solo-scenery-grid">
+            <div class="scenery-card active" data-scenery="landmark81">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🏙️</span>
+                <span class="scenery-badge">Việt Nam 🇻🇳</span>
+              </div>
+              <strong class="scenery-title">Landmark 81 (TP.HCM)</strong>
+              <p class="scenery-desc">Tòa tháp cao nhất Việt Nam lấp lánh đèn LED vươn tới trời đêm sông Sài Gòn huyền ảo.</p>
+            </div>
+            <div class="scenery-card" data-scenery="eiffel">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🗼</span>
+                <span class="scenery-badge">Pháp 🇫🇷</span>
+              </div>
+              <strong class="scenery-title">Tháp Eiffel (Paris)</strong>
+              <p class="scenery-desc">Biểu tượng kinh đô ánh sáng với giàn thép vàng rực và chùm đèn pha quét hoàng hôn Paris.</p>
+            </div>
+            <div class="scenery-card" data-scenery="bigben">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🕰️</span>
+                <span class="scenery-badge">Anh 🇬🇧</span>
+              </div>
+              <strong class="scenery-title">Tháp Big Ben (Luân Đôn)</strong>
+              <p class="scenery-desc">Cung điện Westminster bên dòng sông Thames sương mù, mặt đồng hồ Big Ben phát sáng.</p>
+            </div>
+            <div class="scenery-card" data-scenery="newyork">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🗽</span>
+                <span class="scenery-badge">Hoa Kỳ 🇺🇸</span>
+              </div>
+              <strong class="scenery-title">New York &amp; Nữ Thần Tự Do</strong>
+              <p class="scenery-desc">Thành phố không ngủ, ngọn đuốc Nữ Thần Tự Do rực sáng cùng các tòa chọc trời Manhattan.</p>
+            </div>
+            <div class="scenery-card" data-scenery="nhatrang">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🏖️</span>
+                <span class="scenery-badge">Việt Nam 🇻🇳</span>
+              </div>
+              <strong class="scenery-title">Bãi Biển Nha Trang</strong>
+              <p class="scenery-desc">Bờ cát vàng óng ả, nước biển xanh ngọc bích, rặng dừa nhiệt đới và đảo ngọc ngoài khơi xa.</p>
+            </div>
+            <div class="scenery-card" data-scenery="hachihi_arena">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">⚡</span>
+                <span class="scenery-badge">Cyber Arena</span>
+              </div>
+              <strong class="scenery-title">Hachihi Cyber 2026</strong>
+              <p class="scenery-desc">Đấu trường thể thao mái vòm tương lai với dải LED neon Hachihi bùng nổ, kỷ niệm 17 năm Hoàng Mai.</p>
+            </div>
           </div>
         </div>
 
@@ -1040,6 +1117,7 @@
         </button>
       </div>
     </div>
+  </div>
   <!-- Tank Battle 1990 Style Multiplayer Room Lobby Modal -->
   <div id="room-lobby-modal" class="wii-modal-backdrop hidden">
     <div class="tank-lobby-card">
@@ -1077,7 +1155,7 @@
             </div>
           </div>
 
-          <div class="room-col-box room-col-visibility">
+          <div class="room-col-box room-col-visibility" id="lobby-visibility-col">
             <span class="room-col-label">HIỂN THỊ PHÒNG:</span>
             <label class="tank-toggle-switch">
               <input type="checkbox" id="lobby-public-toggle" checked />
@@ -1097,17 +1175,114 @@
           </div>
         </div>
 
-        <div class="tank-tip-banner">
-          <span class="tip-icon">💡</span>
-          <span>Chủ phòng có thể chuyển người chơi giữa 2 đội, bấm nút thêm Máy (Bot) bên dưới hoặc nhấn Bắt đầu khi sẵn sàng.</span>
+        <!-- VISUAL QR CODE GENERATOR CARD (QUÉT BẰNG CAMERA ĐIỆN THOẠI ĐỂ VÀO PHÒNG) -->
+        <div class="lobby-qr-card" id="lobby-qr-container">
+          <div class="lobby-qr-frame">
+            <canvas id="lobby-qr-canvas" width="124" height="124"></canvas>
+            <img id="lobby-qr-img" width="124" height="124" alt="QR Code" class="hidden" />
+          </div>
+          <div class="lobby-qr-meta">
+            <div class="lobby-qr-title">📱 QUÉT MÃ QR BẰNG CAMERA ĐIỆN THOẠI</div>
+            <div class="lobby-qr-desc">Dùng camera điện thoại quét mã QR để vào phòng ngay lập tức không cần gõ mã. Hoặc gửi link bên dưới:</div>
+            <div class="lobby-qr-link-row">
+              <a id="lobby-qr-direct-link" href="#" target="_blank" rel="noopener" class="lobby-qr-url" title="Nhấp để mở link phòng">...</a>
+              <button type="button" id="btn-copy-lobby-qr-link" class="btn-tank-share">
+                <span>📋 Sao chép link</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- SECTION 2: TÙY CHỈNH 2 ĐỘI (A vs B) -->
-        <div class="tank-section-box tank-teams-panel">
-          <div class="tank-section-heading">
-            <span class="heading-icon">⚙</span>
-            <span>TÙY CHỈNH 2 ĐỘI</span>
+        <!-- GUEST VIEW: BẢNG TÓM TẮT TRẬN ĐẤU (CHỈ XEM CHO NGƯỜI CHƠI THAM GIA) -->
+        <div id="lobby-guest-view" class="tank-section-box guest-summary-card hidden">
+          <div class="guest-card-header">
+            <span class="guest-badge-pulse">🟢 ĐÃ THAM GIA PHÒNG THÀNH CÔNG</span>
+            <h3 class="guest-card-title">BẢNG TÓM TẮT THIẾT LẬP TRẬN ĐẤU</h3>
+            <p class="guest-card-sub">Cài đặt trận đấu do Chủ phòng toàn quyền thiết lập. Bạn có thể xem thông tin và chat bên dưới.</p>
           </div>
+
+          <div class="guest-summary-grid">
+            <div class="guest-info-item highlight-role">
+              <span class="info-label">👤 VỊ TRÍ &amp; ĐỘI CỦA BẠN:</span>
+              <div class="info-val-badge" id="guest-my-role-badge">Đang xác định...</div>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">⚔️ THỂ THỨC THI ĐẤU:</span>
+              <strong class="info-val-text" id="guest-summary-mode">Đấu Đôi 2v2 (A vs B)</strong>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">🏟️ SÂN THI ĐẤU &amp; CẢNH QUAN:</span>
+              <strong class="info-val-text" id="guest-summary-scenery">🏙️ Landmark 81 (TP.HCM, VN)</strong>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">👥 THÀNH PHẦN PHÒNG:</span>
+              <strong class="info-val-text" id="guest-summary-players">1 Người chơi • 0 Bot Máy</strong>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">⚡ CẤP ĐỘ MÁY BOT:</span>
+              <strong class="info-val-text" id="guest-summary-bot-speed">Cấp 2 [Hay]</strong>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">👑 CHỦ PHÒNG (HOST):</span>
+              <strong class="info-val-text" id="guest-summary-host">Hachihi Pro</strong>
+            </div>
+
+            <div class="guest-info-item">
+              <span class="info-label">🏆 MÃ PHÒNG ĐẤU:</span>
+              <strong class="info-val-text code-val" id="guest-summary-room-code">10150</strong>
+            </div>
+          </div>
+
+          <!-- Danh sách 2 Đội ở chế độ chỉ xem -->
+          <div class="guest-roster-box">
+            <div class="guest-roster-col">
+              <div class="roster-header">
+                <span class="team-color-indicator" id="guest-ind-a" style="background-color: #ffea28;"></span>
+                <strong id="guest-name-team-a">Đội A</strong>
+              </div>
+              <div class="guest-roster-list" id="guest-list-team-a">
+                <!-- Sẽ render động -->
+              </div>
+            </div>
+
+            <div class="guest-roster-vs">VS</div>
+
+            <div class="guest-roster-col">
+              <div class="roster-header">
+                <span class="team-color-indicator" id="guest-ind-b" style="background-color: #0284c7;"></span>
+                <strong id="guest-name-team-b">Đội B</strong>
+              </div>
+              <div class="guest-roster-list" id="guest-list-team-b">
+                <!-- Sẽ render động -->
+              </div>
+            </div>
+          </div>
+
+          <div class="guest-waiting-status">
+            <span class="waiting-spinner">⏳</span>
+            <span>Ván đấu sẽ tự động bắt đầu ngay khi Chủ phòng nhấn Bắt Đầu. Hãy gửi tin nhắn cho phòng ở khung chat bên dưới!</span>
+          </div>
+        </div>
+
+        <!-- HOST VIEW: TẤT CẢ CÁC CÀI ĐẶT DÀNH CHO CHỦ PHÒNG -->
+        <div id="lobby-host-view" class="lobby-host-controls-wrapper">
+
+          <div class="tank-tip-banner">
+            <span class="tip-icon">💡</span>
+            <span>Chủ phòng có thể kéo thả di chuyển người/bot giữa 2 đội, nhấn nút 🤖 + Thêm Máy hoặc nút ✕ để xóa slot.</span>
+          </div>
+
+          <!-- SECTION 2: TÙY CHỈNH 2 ĐỘI (A vs B) -->
+          <div class="tank-section-box tank-teams-panel">
+            <div class="tank-section-heading">
+              <span class="heading-icon">⚙</span>
+              <span>TÙY CHỈNH 2 ĐỘI (KÉO THẢ DI CHUYỂN HOẶC BẤM ĐỔI)</span>
+            </div>
 
           <div class="teams-container-grid">
             <!-- ĐỘI A -->
@@ -1264,19 +1439,84 @@
         <div class="tank-section-box">
           <div class="tank-section-heading">
             <span class="heading-icon">⚡</span>
-            <span>TỐC ĐỘ &amp; CẤP ĐỘ MÁY (BOT):</span>
-            <span class="heading-badge" id="tank-speed-badge">CẤP 3 [CHUẨN] - 1.0x</span>
+            <span>CẤP ĐỘ MÁY (BOT):</span>
+            <span class="heading-badge" id="tank-speed-badge">CẤP 2 [HAY]</span>
           </div>
 
           <div class="tank-speed-row" id="tank-speed-group">
-            <button type="button" class="btn-speed-item" data-speed="1"><span>1<br><small>Chậm</small></span></button>
-            <button type="button" class="btn-speed-item" data-speed="2"><span>2<br><small>Vừa</small></span></button>
-            <button type="button" class="btn-speed-item active" data-speed="3"><span>3<br><small>Chuẩn</small></span></button>
-            <button type="button" class="btn-speed-item" data-speed="4"><span>4<br><small>Nhanh</small></span></button>
-            <button type="button" class="btn-speed-item" data-speed="5"><span>5<br><small>Turbo</small></span></button>
+            <button type="button" class="btn-speed-item" data-speed="1"><span>1<br><small>Đánh dở</small></span></button>
+            <button type="button" class="btn-speed-item active" data-speed="2"><span>2<br><small>Đánh hay</small></span></button>
+            <button type="button" class="btn-speed-item" data-speed="3"><span>3<br><small>Rất thông minh</small></span></button>
           </div>
-          <div class="tank-speed-note">Chuẩn (Mặc định): Tốc độ phản xạ và quỹ đạo bóng Pickleball giải đấu Hachihi Open 2026.</div>
+          <div class="tank-speed-note" id="tank-speed-note">Cấp 2: Bot đánh ổn định, biết dink vào bếp và smash khi bóng bổng.</div>
         </div>
+
+        <!-- SECTION: CHỌN SÂN THI ĐẤU & KHUNG CẢNH (CẢNH ĐẸP VIỆT NAM & THẾ GIỚI) -->
+        <div class="tank-section-box">
+          <div class="tank-section-heading">
+            <span class="heading-icon">🏟️</span>
+            <span>CHỌN SÂN THI ĐẤU &amp; KHUNG CẢNH (CẢNH ĐẸP VIỆT NAM &amp; THẾ GIỚI):</span>
+            <span class="heading-badge" id="lobby-scenery-badge">VIỆT NAM 🇻🇳</span>
+          </div>
+          <p class="tank-section-sub">Chủ phòng có thể chọn khung cảnh kỳ quan yêu thích, đấu trường 3D sẽ tái hiện trực tiếp bên ngoài sân thi đấu:</p>
+
+          <div class="scenery-cards-grid" id="lobby-scenery-grid">
+            <div class="scenery-card active" data-scenery="landmark81">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🏙️</span>
+                <span class="scenery-badge">Việt Nam 🇻🇳</span>
+              </div>
+              <strong class="scenery-title">Landmark 81 (TP.HCM)</strong>
+              <p class="scenery-desc">Tòa tháp cao nhất Việt Nam vươn cao với đèn LED neon lấp lánh bên bờ sông Sài Gòn huyền ảo.</p>
+            </div>
+
+            <div class="scenery-card" data-scenery="eiffel">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🗼</span>
+                <span class="scenery-badge">Pháp 🇫🇷</span>
+              </div>
+              <strong class="scenery-title">Tháp Eiffel (Paris)</strong>
+              <p class="scenery-desc">Kinh đô ánh sáng hoa lệ với giàn thép vàng rực rỡ và chùm đèn pha quét bầu trời hoàng hôn Paris.</p>
+            </div>
+
+            <div class="scenery-card" data-scenery="bigben">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🕰️</span>
+                <span class="scenery-badge">Anh 🇬🇧</span>
+              </div>
+              <strong class="scenery-title">Tháp Big Ben (Luân Đôn)</strong>
+              <p class="scenery-desc">Cung điện Westminster bên dòng sông Thames mờ sương, mặt đồng hồ Big Ben phát sáng trang trọng.</p>
+            </div>
+
+            <div class="scenery-card" data-scenery="newyork">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🗽</span>
+                <span class="scenery-badge">Hoa Kỳ 🇺🇸</span>
+              </div>
+              <strong class="scenery-title">New York &amp; Nữ Thần Tự Do</strong>
+              <p class="scenery-desc">Thành phố không ngủ, ngọn đuốc Nữ Thần Tự Do rực sáng cùng các tòa chọc trời Manhattan huyền thoại.</p>
+            </div>
+
+            <div class="scenery-card" data-scenery="nhatrang">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">🏖️</span>
+                <span class="scenery-badge">Việt Nam 🇻🇳</span>
+              </div>
+              <strong class="scenery-title">Biển Nhiệt Đới Nha Trang</strong>
+              <p class="scenery-desc">Bờ cát vàng óng ả, nước biển xanh ngọc bích, rặng dừa đung đưa và các hòn đảo ngọc ngoài khơi xa.</p>
+            </div>
+
+            <div class="scenery-card" data-scenery="hachihi_arena">
+              <div class="scenery-card-header">
+                <span class="scenery-icon">⚡</span>
+                <span class="scenery-badge">Cyber Arena</span>
+              </div>
+              <strong class="scenery-title">Hachihi Cyber Arena 2026</strong>
+              <p class="scenery-desc">Đấu trường thể thao mái vòm tương lai với dải LED neon Hachihi bùng nổ, kỷ niệm 17 năm Hoàng Mai.</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
         <!-- SECTION 5: TRÒ CHUYỆN PHÒNG (CHAT BOX) -->
         <div class="tank-section-box tank-chat-box">
@@ -1380,6 +1620,21 @@
     renderAllHudMiiAvatars();
   </script>
   <script type="module" src="./src/mobile_ux.js"></script>
+  <script type="module" src="./src/hud_menu.js"></script>
   <script type="module" src="./src/game_engine.js"></script>
+  <script>
+    // Ảnh tham chiếu nhưng chưa có file: ẩn ảnh (và cả ô gallery) thay vì hiện icon ảnh vỡ
+    document.addEventListener('error', function (ev) {
+      var t = ev.target;
+      if (!t || t.tagName !== 'IMG') return;
+      var box = t.closest('.gallery-item') || t;
+      box.classList.add('img-missing');
+    }, true);
+    window.addEventListener('load', function () {
+      document.querySelectorAll('img').forEach(function (i) {
+        if (i.complete && i.naturalWidth === 0 && i.getAttribute('src')) (i.closest('.gallery-item') || i).classList.add('img-missing');
+      });
+    });
+  </script>
 </body>
 </html>

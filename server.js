@@ -25,7 +25,7 @@ function createDefaultSlots(matchType = "doubles", hostName = "Hachihi Pro") {
       slotNumber: 1,
       playerType: "human",
       playerId: "p1",
-      playerName: hostName || "Player 1",
+      playerName: hostName || "Hachihi Pro",
       status: "ready",
       avatar: "player1"
     }
@@ -36,11 +36,11 @@ function createDefaultSlots(matchType = "doubles", hostName = "Hachihi Pro") {
       slotId: "A2",
       teamCode: "A",
       slotNumber: 2,
-      playerType: "bot",
-      botId: "BOT_MAYA",
-      playerName: "Maya (AI)",
-      botDifficulty: "normal",
-      status: "ready",
+      playerType: "empty",
+      botId: null,
+      playerName: "Vị trí A2 (Đang chờ...)",
+      botDifficulty: null,
+      status: "waiting",
       avatar: "player2"
     });
   }
@@ -49,11 +49,11 @@ function createDefaultSlots(matchType = "doubles", hostName = "Hachihi Pro") {
     slotId: "B1",
     teamCode: "B",
     slotNumber: 1,
-    playerType: "bot",
-    botId: "BOT_MATT",
-    playerName: "Matt (AI)",
-    botDifficulty: "normal",
-    status: "ready",
+    playerType: "empty",
+    botId: null,
+    playerName: "Vị trí B1 (Đang chờ...)",
+    botDifficulty: null,
+    status: "waiting",
     avatar: "opponent1"
   });
 
@@ -62,11 +62,11 @@ function createDefaultSlots(matchType = "doubles", hostName = "Hachihi Pro") {
       slotId: "B2",
       teamCode: "B",
       slotNumber: 2,
-      playerType: "bot",
-      botId: "BOT_AKIRA",
-      playerName: "Akira (AI)",
-      botDifficulty: "normal",
-      status: "ready",
+      playerType: "empty",
+      botId: null,
+      playerName: "Vị trí B2 (Đang chờ...)",
+      botDifficulty: null,
+      status: "waiting",
       avatar: "opponent2"
     });
   }
@@ -86,6 +86,7 @@ function initRoom(roomId, hostName = "Hachihi Pro", matchType = "doubles", games
     teamAColor: "#ffea28",
     teamBColor: "#25a8f5",
     botDifficulty: "normal",
+    scenery: "landmark81",
     isPublic: true,
     started: false,
     slots: createDefaultSlots(matchType, hostName),
@@ -292,7 +293,12 @@ const server = http.createServer(async (req, res) => {
       if (body.teamBName) targetRoom.teamBName = String(body.teamBName);
       if (body.teamAColor) targetRoom.teamAColor = String(body.teamAColor);
       if (body.teamBColor) targetRoom.teamBColor = String(body.teamBColor);
-      if (body.botDifficulty) targetRoom.botDifficulty = String(body.botDifficulty);
+      if (body.botDifficulty) {
+        targetRoom.botDifficulty = String(body.botDifficulty);
+        // Đổi cấp độ -> áp cho mọi bot đang có trong phòng
+        for (const sl of targetRoom.slots) if (sl.playerType === "bot") sl.botDifficulty = targetRoom.botDifficulty;
+      }
+      if (body.scenery) targetRoom.scenery = String(body.scenery);
       if (body.isPublic !== undefined) targetRoom.isPublic = !!body.isPublic;
       if (body.gamesToWin) targetRoom.gamesToWin = Number(body.gamesToWin);
       if (body.matchType && body.matchType !== targetRoom.matchType) {
@@ -305,6 +311,7 @@ const server = http.createServer(async (req, res) => {
         teamAName: targetRoom.teamAName,
         teamBName: targetRoom.teamBName,
         matchType: targetRoom.matchType,
+        scenery: targetRoom.scenery,
         slots: targetRoom.slots
       });
       return;
@@ -369,7 +376,10 @@ const server = http.createServer(async (req, res) => {
       if (slot) {
         if (body.playerType) slot.playerType = body.playerType;
         if (body.botDifficulty) slot.botDifficulty = body.botDifficulty;
-        if (body.playerName) slot.playerName = body.playerName;
+        if (body.playerName) {
+          slot.playerName = String(body.playerName).slice(0, 16);
+          if (slot.slotId === "A1") targetRoom.hostName = slot.playerName;
+        }
         if (body.botId) slot.botId = body.botId;
         if (body.status) slot.status = body.status;
       }
@@ -378,13 +388,75 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // POST /api/match/slot/move (Kéo thả tráo đổi hoặc chuyển đội)
+    if (req.method === "POST" && pathname === "/api/match/slot/move") {
+      const body = await parseJsonBody(req);
+      const targetRoom = getRoom(body.room || roomId);
+      const fromSlotId = body.fromSlotId;
+      const toSlotId = body.toSlotId;
+      const targetTeam = body.targetTeam;
+      const fromSlot = targetRoom.slots.find((s) => s.slotId === fromSlotId);
+      if (fromSlot) {
+        let toSlot = toSlotId ? targetRoom.slots.find((s) => s.slotId === toSlotId) : null;
+        if (!toSlot && targetTeam) {
+          toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.playerType === "empty");
+          if (!toSlot) {
+            toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.playerType === "bot");
+          }
+          if (!toSlot) {
+            toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.slotId !== fromSlotId);
+          }
+        }
+        if (toSlot && toSlot.slotId !== fromSlot.slotId) {
+          const temp = {
+            playerType: fromSlot.playerType,
+            playerId: fromSlot.playerId,
+            playerName: fromSlot.playerName,
+            botId: fromSlot.botId,
+            botDifficulty: fromSlot.botDifficulty,
+            status: fromSlot.status,
+            avatar: fromSlot.avatar
+          };
+          fromSlot.playerType = toSlot.playerType;
+          fromSlot.playerId = toSlot.playerId;
+          fromSlot.playerName = toSlot.playerName;
+          fromSlot.botId = toSlot.botId;
+          fromSlot.botDifficulty = toSlot.botDifficulty;
+          fromSlot.status = toSlot.status;
+
+          toSlot.playerType = temp.playerType;
+          toSlot.playerId = temp.playerId;
+          toSlot.playerName = temp.playerName;
+          toSlot.botId = temp.botId;
+          toSlot.botDifficulty = temp.botDifficulty;
+          toSlot.status = temp.status;
+
+          targetRoom.messages.push({
+            id: "msg_move_" + Date.now(),
+            sender: "Hệ thống",
+            role: "system",
+            team: "SYS",
+            text: `Vị trí đã được điều chỉnh: ${fromSlotId} ⇄ ${toSlot.slotId}`,
+            timestamp: Date.now()
+          });
+        }
+      }
+      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
+      return;
+    }
+
     // POST /api/match/slot/join (Người thật tham gia slot trống)
     if (req.method === "POST" && pathname === "/api/match/slot/join") {
       const body = await parseJsonBody(req);
       const targetRoom = getRoom(body.room || roomId);
-      let slot = targetRoom.slots.find((s) => s.slotId === body.slotId);
+      let slot = targetRoom.slots.find((s) => s.slotId === body.slotId && s.playerType !== "human");
       if (!slot) {
-        slot = targetRoom.slots.find((s) => s.playerType === "empty" || s.playerType === "bot");
+        slot = targetRoom.slots.find((s) => s.playerType === "empty") ||
+               targetRoom.slots.find((s) => s.playerType === "bot");
+      }
+      if (!slot) {
+        sendJson(res, 409, { ok: false, error: "ROOM_FULL", roomId: targetRoom.roomId });
+        return;
       }
 
       if (slot) {
@@ -405,7 +477,7 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
+      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, assignedSlot: slot.slotId, slots: targetRoom.slots });
       return;
     }
 
@@ -419,7 +491,7 @@ const server = http.createServer(async (req, res) => {
         targetSlot.playerType = "bot";
         targetSlot.botId = `BOT_${targetSlot.slotId}`;
         targetSlot.playerName = targetSlot.teamCode === "A" ? "Maya (AI)" : "Matt (AI)";
-        targetSlot.botDifficulty = "normal";
+        targetSlot.botDifficulty = targetRoom.botDifficulty || "normal";
         targetSlot.status = "ready";
 
         targetRoom.messages.push({
