@@ -15,6 +15,7 @@ export class MatchManager {
     this.botDifficulty = "normal";
     this.isHost = true;
     this.localPlayerSlot = "A1";
+    this.scenery = "landmark81";
     this.currentMatch = null;
     this.slots = [];
     this.messages = [];
@@ -40,35 +41,79 @@ export class MatchManager {
       avatar: "player1"
     });
 
-    // Nếu là Doubles: Slot A2 mặc định là BOT đồng đội
-    if (this.matchType === "doubles") {
-      globalMatchDB.assignBotToSlot(this.currentMatch.id, "A2", {
-        botId: "BOT_MAYA",
-        botName: "Maya (AI)",
-        botDifficulty: this.botDifficulty,
-        avatar: "player2"
-      });
-    }
-
-    // Slot B1: Mặc định là BOT đối thủ
-    globalMatchDB.assignBotToSlot(this.currentMatch.id, "B1", {
-      botId: "BOT_MATT",
-      botName: "Matt (AI)",
-      botDifficulty: this.botDifficulty,
-      avatar: "opponent1"
-    });
-
-    // Nếu là Doubles: Slot B2 mặc định là BOT đối thủ 2
-    if (this.matchType === "doubles") {
-      globalMatchDB.assignBotToSlot(this.currentMatch.id, "B2", {
-        botId: "BOT_AKIRA",
-        botName: "Akira (AI)",
-        botDifficulty: this.botDifficulty,
-        avatar: "opponent2"
-      });
-    }
-
+    // Slots A2, B1, B2 để trống, chờ người chơi tham gia hoặc chủ phòng thêm Bot thủ công
     this.slots = globalMatchDB.getMatchSlots(this.currentMatch.id);
+  }
+
+  // Khởi tạo danh sách slot chuẩn cho Lobby phòng mới: chỉ Host ở A1, A2, B1, B2 để trống
+  initRoomLobbySlots(hostName = this.hostName) {
+    this.hostName = hostName || "Hachihi Pro";
+    this.slots = [
+      {
+        slotId: "A1",
+        teamCode: "A",
+        slotNumber: 1,
+        playerType: "human",
+        playerId: "p1",
+        playerName: this.hostName,
+        botId: null,
+        botDifficulty: null,
+        status: "ready",
+        avatar: "player1"
+      },
+      {
+        slotId: "A2",
+        teamCode: "A",
+        slotNumber: 2,
+        playerType: "empty",
+        playerId: null,
+        botId: null,
+        playerName: "Đang chờ người chơi...",
+        botDifficulty: null,
+        status: "waiting",
+        avatar: "player2"
+      },
+      {
+        slotId: "B1",
+        teamCode: "B",
+        slotNumber: 1,
+        playerType: "empty",
+        playerId: null,
+        botId: null,
+        playerName: "Đang chờ người chơi...",
+        botDifficulty: null,
+        status: "waiting",
+        avatar: "opponent1"
+      },
+      {
+        slotId: "B2",
+        teamCode: "B",
+        slotNumber: 2,
+        playerType: "empty",
+        playerId: null,
+        botId: null,
+        playerName: "Đang chờ người chơi...",
+        botDifficulty: null,
+        status: "waiting",
+        avatar: "opponent2"
+      }
+    ];
+    return this.slots;
+  }
+
+  // Thêm Bot thủ công vào đội A hoặc đội B
+  addBotToTeam(teamCode = "A", difficulty = this.botDifficulty) {
+    let slot = this.slots.find(s => s.teamCode === teamCode && s.playerType === "empty");
+    if (!slot) {
+      slot = this.slots.find(s => s.teamCode === teamCode && s.playerType === "bot");
+    }
+    if (!slot) {
+      slot = this.slots.find(s => s.teamCode === teamCode && s.slotId !== "A1");
+    }
+    if (slot) {
+      return this.addBot(slot.slotId, difficulty);
+    }
+    return null;
   }
 
   // Tự động add BOT vào cho đủ theo thể thức 1-1 hay 2-2
@@ -267,6 +312,65 @@ export class MatchManager {
     return false;
   }
 
+  // Tráo đổi vị trí giữa 2 slot (hỗ trợ kéo thả drag & drop)
+  swapSlots(fromSlotId, toSlotId) {
+    if (fromSlotId === toSlotId) return false;
+    const fromSlot = this.slots.find(s => s.slotId === fromSlotId);
+    const toSlot = this.slots.find(s => s.slotId === toSlotId);
+    if (!fromSlot || !toSlot) return false;
+
+    const temp = {
+      playerType: fromSlot.playerType,
+      playerId: fromSlot.playerId,
+      playerName: fromSlot.playerName,
+      botId: fromSlot.botId,
+      botDifficulty: fromSlot.botDifficulty,
+      status: fromSlot.status,
+      avatar: fromSlot.avatar
+    };
+
+    fromSlot.playerType = toSlot.playerType;
+    fromSlot.playerId = toSlot.playerId;
+    fromSlot.playerName = toSlot.playerName;
+    fromSlot.botId = toSlot.botId;
+    fromSlot.botDifficulty = toSlot.botDifficulty;
+    fromSlot.status = toSlot.status;
+
+    toSlot.playerType = temp.playerType;
+    toSlot.playerId = temp.playerId;
+    toSlot.playerName = temp.playerName;
+    toSlot.botId = temp.botId;
+    toSlot.botDifficulty = temp.botDifficulty;
+    toSlot.status = temp.status;
+
+    if (this.localPlayerSlot === fromSlotId) {
+      this.localPlayerSlot = toSlotId;
+    } else if (this.localPlayerSlot === toSlotId) {
+      this.localPlayerSlot = fromSlotId;
+    }
+    return true;
+  }
+
+  // Kéo thả hoặc di chuyển một slot sang một đội mục tiêu
+  moveToTeam(fromSlotId, targetTeamCode) {
+    const fromSlot = this.slots.find(s => s.slotId === fromSlotId);
+    if (!fromSlot) return false;
+    if (fromSlot.teamCode === targetTeamCode) return false;
+
+    // Tìm slot trống trước
+    let toSlot = this.slots.find(s => s.teamCode === targetTeamCode && s.playerType === "empty");
+    if (!toSlot) {
+      toSlot = this.slots.find(s => s.teamCode === targetTeamCode && s.playerType === "bot");
+    }
+    if (!toSlot) {
+      toSlot = this.slots.find(s => s.teamCode === targetTeamCode);
+    }
+    if (toSlot && toSlot.slotId !== fromSlotId) {
+      return this.swapSlots(fromSlotId, toSlot.slotId);
+    }
+    return false;
+  }
+
   // Đưa slot về trạng thái trống để chờ người vào
   clearSlot(slotId) {
     const target = this.slots.find(s => s.slotId === slotId);
@@ -322,11 +426,19 @@ export class MatchManager {
       teamAColor: this.teamAColor,
       teamBColor: this.teamBColor,
       botDifficulty: this.botDifficulty,
+      scenery: this.scenery,
       canStart: this.canStart(),
       slots: this.slots,
       messages: this.messages,
       started: this.started
     };
+  }
+
+  setScenery(sceneryId) {
+    if (sceneryId) {
+      this.scenery = sceneryId;
+    }
+    return this.scenery;
   }
 
   // Đồng bộ trạng thái từ Server
@@ -341,11 +453,13 @@ export class MatchManager {
     if (serverData.roomId) {
       this.roomId = serverData.roomId;
     }
+    if (serverData.hostName) this.hostName = serverData.hostName;
     if (serverData.teamAName) this.teamAName = serverData.teamAName;
     if (serverData.teamBName) this.teamBName = serverData.teamBName;
     if (serverData.teamAColor) this.teamAColor = serverData.teamAColor;
     if (serverData.teamBColor) this.teamBColor = serverData.teamBColor;
     if (serverData.botDifficulty) this.botDifficulty = serverData.botDifficulty;
+    if (serverData.scenery) this.scenery = serverData.scenery;
     if (serverData.messages && Array.isArray(serverData.messages)) {
       this.messages = serverData.messages;
     }
