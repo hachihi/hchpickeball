@@ -17,7 +17,9 @@ export class BotMovement {
     this.sideSign = actor.sideSign || 1; // 1: Team A (Player side), -1: Team B (Opponent side)
     this.matchType = slotConfig.matchType || "doubles";
     this.assignedRole = slotConfig.slotId || "B1"; // A1, A2, B1, B2
-    this.baseSpeed = actor.maxSpeed || 8.2;
+    // Tốc độ gốc cố định (không phụ thuộc maxSpeed của actor) để cấp độ bot quyết định tốc độ chạy
+    this.baseSpeed = 7.6;
+    this.anticipationNoise = { x: 0, z: 0 };
     this.reactionTimer = 0;
     this.currentTandemState = "baseline"; // 'baseline', 'transition', 'kitchen'
   }
@@ -75,7 +77,8 @@ export class BotMovement {
 
     if (isMyShot && isBallOnMySide) {
       // BOT được phân công đón bóng
-      const targetLanding = ball.targetLanding || ball.pos;
+      const rawLanding = ball.targetLanding || ball.pos;
+      const targetLanding = { x: rawLanding.x + this.anticipationNoise.x, z: rawLanding.z + this.anticipationNoise.z };
       const marginZ = this.sideSign * (ball.vel.length() > 14 ? 1.6 : 1.1);
       let interceptZ = targetLanding.z + marginZ;
 

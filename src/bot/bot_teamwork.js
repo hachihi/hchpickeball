@@ -2,7 +2,7 @@
 // Quản lý phối hợp giữa hai người chơi cùng đội trong thể thức Đánh Đôi (Doubles)
 
 export class BotTeamwork {
-  static evaluatePairAssignment(actor1, actor2, ball, matchType = "doubles") {
+  static evaluatePairAssignment(actor1, actor2, ball, matchType = "doubles", opts = {}) {
     if (matchType !== "doubles" || !actor2) {
       return {
         actor1: { isPrimaryHitter: true, role: "solo" },
@@ -20,6 +20,9 @@ export class BotTeamwork {
     let bias1 = 0;
     if (actor1.pos.x < 0 && target.x > -0.5 && target.x < 0.5) bias1 -= 0.45;
     if (actor2.pos.x < 0 && target.x > -0.5 && target.x < 0.5) bias1 += 0.45;
+
+    // Đồng đội là người thật: bot ưu tiên tự đón bóng trừ khi người đó thực sự gần hơn nhiều
+    if (opts.partnerIsHuman) bias1 -= 1.4;
 
     const actor1IsCloser = (dist1 + bias1) <= dist2;
 
