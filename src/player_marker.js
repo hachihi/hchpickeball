@@ -26,6 +26,21 @@ export class PlayerMarkers {
     this.root.name = "PlayerMarkers";
     engine.scene.add(this.root);
     for (const def of SLOTS) this.items.push(this._makeItem(def));
+
+    // Tùy chọn trong Cài đặt: hiện / ẩn chữ trên đầu nhân vật (nhớ lại lần sau)
+    this.showText = this._loadSetting();
+    const sw = document.getElementById("setting-name-tags");
+    if (sw) {
+      sw.checked = this.showText;
+      sw.addEventListener("change", () => {
+        this.showText = !!sw.checked;
+        try { localStorage.setItem("hchShowNameTags", this.showText ? "1" : "0"); } catch (_) {}
+      });
+    }
+  }
+
+  _loadSetting() {
+    try { return localStorage.getItem("hchShowNameTags") !== "0"; } catch (_) { return true; }
   }
 
   _makeItem(def) {
@@ -74,7 +89,13 @@ export class PlayerMarkers {
     x.clearRect(0, 0, c.width, c.height);
     const bg = mine ? "#b6ff3c" : team === "A" ? "rgba(14,70,140,0.92)" : "rgba(120,36,36,0.92)";
     const fg = mine ? "#10240a" : "#ffffff";
-    const w = mine ? 360 : 440, h = 92, px = (c.width - w) / 2, py = 18;
+    const fs = mine ? 58 : 48;
+    x.font = `900 ${fs}px system-ui, "Segoe UI", Arial, sans-serif`;
+    let t = text;
+    while (x.measureText(t).width > 400 && t.length > 3) t = t.slice(0, -2);
+    if (t !== text) t += "…";
+    const tw = x.measureText(t).width;
+    const w = clamp(tw + 70, 170, 476), h = 92, px = (c.width - w) / 2, py = 18;
     x.fillStyle = bg;
     x.beginPath();
     const r = 26;
@@ -86,10 +107,6 @@ export class PlayerMarkers {
     x.lineWidth = 6; x.strokeStyle = mine ? "#ffffff" : "rgba(255,255,255,0.7)"; x.stroke();
     x.fillStyle = fg;
     x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = `900 ${mine ? 62 : 50}px system-ui, "Segoe UI", Arial, sans-serif`;
-    let t = text;
-    while (x.measureText(t).width > w - 40 && t.length > 3) t = t.slice(0, -2);
-    if (t !== text) t += "…";
     x.fillText(t, c.width / 2, py + h / 2 + 3);
     it.tex.needsUpdate = true;
   }
@@ -113,6 +130,8 @@ export class PlayerMarkers {
     const cam = e.camera;
     const viewH = (d) => 2 * d * Math.tan((cam.fov * Math.PI) / 360);
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 4);
+    const humans = ((this._slotInfo("A1").mm || {}).slots || []).filter(q => q.playerType === "human").length;
+    const multiplayer = humans >= 2 || !!e.isMultiplayer;
 
     for (const it of this.items) {
       const actor = e[it.def.actor];
@@ -137,17 +156,22 @@ export class PlayerMarkers {
       // nhãn: kích thước theo tỷ lệ màn hình (luôn đọc được dù camera xa)
       const head = new this.T.Vector3(actor.pos.x, 2.9, actor.pos.z);
       const d = cam.position.distanceTo(head);
-      const hWorld = viewH(d) * (isMine ? 0.075 : 0.052);
+      const hWorld = viewH(d) * (isMine ? 0.0525 : 0.0364); // = 70% kích thước cũ
       it.sprite.scale.set(hWorld * 4, hWorld, 1);
-      it.sprite.position.set(0, isMine ? 3.55 + 0.003 * d : 3.2, 0);
+      it.sprite.position.set(0, isMine ? 3.45 + 0.002 * d : 3.15, 0);
 
-      let text = "BẠN";
-      if (!isMine) {
-        const { slot } = this._slotInfo(it.def.id);
-        text = (slot && (slot.playerName || slot.botName)) || FALLBACK_NAME[it.def.id];
-        text = String(text).replace(/^Vị trí .*/, FALLBACK_NAME[it.def.id]);
+      const { slot } = this._slotInfo(it.def.id);
+      const rawName = slot && (slot.playerName || slot.botName);
+      const hasName = !!rawName && !/^Vị trí /.test(rawName);
+      let text;
+      if (isMine) {
+        // Phòng chung (từ 2 người thật trở lên) và có tên -> "BẠN · Tên"; chơi một mình -> "BẠN"
+        text = multiplayer && hasName ? "BẠN · " + rawName : "BẠN";
+      } else {
+        text = hasName ? rawName : FALLBACK_NAME[it.def.id];
       }
-      this._drawLabel(it, text, isMine, it.def.team);
+      this._drawLabel(it, String(text), isMine, it.def.team);
+      it.sprite.visible = this.showText;
 
       // mũi tên nảy phía trên nhân vật của mình
       it.arrow.visible = isMine;
