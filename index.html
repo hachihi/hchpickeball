@@ -85,6 +85,10 @@
         <svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/></svg>
         <span class="pause-text sr-only" id="btn-pause-exit-text">Pause</span>
       </button>
+      <button id="btn-hud-sound" class="hud-sound-btn btn-icon" type="button" title="Tắt / mở loa" aria-label="Tắt / mở loa" aria-pressed="false">
+        <svg class="ico ico-sound-on" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 010 7M18 6a8.5 8.5 0 010 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+        <svg class="ico ico-sound-off" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
+      </button>
       <button id="btn-hud-menu" class="hud-menu-btn btn-icon" type="button" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="hud-menu-sheet">
         <svg class="ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
       </button>
@@ -573,6 +577,7 @@
                 <span>Tham Gia Phòng ↗</span>
               </button>
             </div>
+            <p id="room-join-error" class="room-error hidden" role="alert" aria-live="assertive"></p>
           </div>
         </div>
 
@@ -971,6 +976,23 @@
         <div class="portal-tab-pane" id="pane-stage">
           <div class="stage-settings-section">
             
+            <!-- Chữ trên đầu nhân vật -->
+            <div class="settings-subcard">
+              <h5 class="subcard-title">🏷️ Chữ Trên Đầu Nhân Vật</h5>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-title">Hiện tên / chữ "BẠN" trên đầu</div>
+                  <div class="setting-desc">Bật: hiện nhãn "BẠN" và tên người chơi trên đầu từng nhân vật. Tắt: chỉ còn vòng sáng dưới chân, sân thoáng hơn.</div>
+                </div>
+                <div class="setting-ctrl">
+                  <label class="portal-switch">
+                    <input type="checkbox" id="setting-name-tags" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <!-- Âm Thanh -->
             <div class="settings-subcard">
               <h5 class="subcard-title">🔊 Âm Thanh Sân Đấu (Audio &amp; SFX)</h5>
@@ -1621,6 +1643,7 @@
   </script>
   <script type="module" src="./src/mobile_ux.js"></script>
   <script type="module" src="./src/hud_menu.js"></script>
+  <script type="module" src="./src/hud_sound.js"></script>
   <script type="module" src="./src/game_engine.js"></script>
   <script>
     // Ảnh tham chiếu nhưng chưa có file: ẩn ảnh (và cả ô gallery) thay vì hiện icon ảnh vỡ
