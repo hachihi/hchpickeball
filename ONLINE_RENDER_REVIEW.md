@@ -43,6 +43,9 @@ Mức độ: **Cao** = hỏng trận hoặc gian lận được; **TB** = trải
 | R-16 | TB | Host chạy mô phỏng nên **phải giữ tab ở nền trước**; tab nền bị trình duyệt làm chậm/tạm dừng `requestAnimationFrame` → cả phòng đứng hình (điện thoại khóa màn hình cũng vậy). Nay khách được báo (R-04) nhưng nguyên nhân gốc còn | **Hạn chế đã biết**, chỉ khắc phục triệt để khi server giữ trạng thái (5-C) |
 | R-17 | Thấp | Đọc `state` không cần session: ai biết mã (5 chữ số ngẫu nhiên) đọc được tên, chat, snapshot của phòng | Chưa sửa; rủi ro thấp. Đề xuất: mã dài hơn (6 ký tự chữ-số) khi mở rộng |
 | R-18 | Thấp | Khách tạo phòng lần đầu sau khi server ngủ phải chờ 30–60 s mà không có thông báo | **Đã sửa một phần**: `create`/`slot/join` tự thử lại tối đa 8 lần kèm thông báo "Máy chủ đang khởi động". Nếu *cả trang* chưa tải được thì chỉ trình duyệt hiện lỗi (không can thiệp được) |
+| R-20 | **Cao** | **Khách không điều khiển được nhân vật** (báo cáo của người dùng: host trên Chrome, khách vào bằng Edge, host giao bóng, khách "không đỡ được"). Host chạy toàn bộ mô phỏng; phím WASD/joystick của khách chỉ ghi vào máy khách (`moveInput`) và `_applyManualMovement` bỏ qua khách. Kết quả: nhân vật ghế A2 đứng yên ở giữa sân (vị trí đội hình), chỉ tự chạy khi bóng rơi gần; bóng đi vào vùng khác thì khách bấm đánh cũng không chạm tới. Đo trên server thật: khách gửi 745 cú đánh, 0 lần trúng; host 8/89 | **Đã sửa**: relay di chuyển khách → host (`POST /api/racket/move`, đẩy tức thời qua SSE, có poll dự phòng); host áp dụng cho đúng nhân vật của khách (A2/B1/B2), đội B được lật trục vì khách nhìn từ phía đối diện; bỏ qua lệnh cũ >0,6 s và ghế đang do BOT điều khiển |
+| R-21 | TB | Độ trễ cú đánh: cú bấm của khách đi lên server rồi mới tới host (thêm 1 RTT, thường 100–300 ms qua Render). Game yêu cầu bấm đúng lúc bóng tới, nên khách vẫn thấy "đánh trễ" hơn host | **Chưa sửa**: cần bù độ trễ (host chấp nhận cú đánh muộn thêm ~RTT) hoặc WebSocket (mục 5-A). Dùng `serverTimeMs` có sẵn trong `swing` để đo |
+| R-22 | TB | Đội hình 2v2: người ở A2 đứng giữa sân (z≈5) và chỉ được giao bóng nằm ở vùng giữa; bóng sâu mặc định do A1 (host) xử lý | Hành vi thiết kế cũ, chưa đổi. Với relay di chuyển khách có thể tự chạy ra phía sau |
 | R-19 | Thấp | Ba file `match_db` trùng nhau; README mẫu AI Studio; tệp `download` rỗng | Chưa dọn (không ảnh hưởng chạy) |
 
 ### Chi tiết kỹ thuật các thay đổi
@@ -52,6 +55,7 @@ Mức độ: **Cao** = hỏng trận hoặc gian lận được; **TB** = trải
 - `server.js`: static an toàn/nén/cache, `/healthz`, bắt lỗi toàn cục (R-08, R-09, R-11).
 - `src/session_client.js`: banner kết nối, chống chồng poll, tự thử lại khi tạo/vào phòng (R-01, R-02, R-04, R-05, R-18). Chỉ theo dõi phòng mà tab này có session, nên **chơi Offline không bao giờ hiện banner**.
 - `scripts/download-assets.mjs`, `render.yaml` (R-10, R-11).
+- `server/api.js` `/api/racket/move`, `src/motion_controls.js` (`_restartMoveRelay`, `_handleRemoteMove`), `src/game_engine.js` (`_applyManualMovement` dùng cho cả khách) — R-20.
 - Test mới/đổi: `scripts/test_multiplayer.mjs` (51 → 64: swing cần session, vai bị ép theo ghế, `hostOnline`, giới hạn tạo phòng, trần phòng), `scripts/test_transport.mjs` (nay vào phòng bằng session thật như trình duyệt), `e2e/connection.e2e.mjs` (mới).
 
 ## 4. Việc nên làm trước khi mở cho nhiều người chơi
@@ -83,6 +87,7 @@ Nên làm theo thứ tự D → A → B → C. C là thay đổi lớn nhất, c
 | 4 | Static server, `/healthz`, bắt lỗi, build không fail (R-08…R-11) | Kiểm thủ công: 404 file thiếu, gzip 311 KB, `../` bị chặn |
 | 5 | Client chịu lỗi mạng (R-01, R-02, R-04, R-05, R-18) | `e2e/connection.e2e.mjs` 7/7 |
 | 6 | Chạy lại toàn bộ test, `tsc`, `vite build`, đóng gói | Xem mục 7 |
+| 7 | Người dùng báo: khách (Edge) không điều khiển/không đỡ được bóng. Dựng lại bằng 2 trình duyệt + server thật; truy từng bước: cú đánh của khách **tới được** host (server nhận 70/70, host định tuyến đúng A2), nhưng nhân vật A2 không bao giờ di chuyển. Sửa bằng relay di chuyển (R-20) | `test_multiplayer` 69/69, `test_transport` 50/50 (thêm kiểm tra di chuyển ở cả 4 kịch bản mạng); kiểm trên trình duyệt: A2 dịch đúng hướng, B1/B2 chỉ khi là người, lệnh cũ và ghế BOT bị bỏ qua |
 
 ## 7. Cách chạy lại kiểm tra
 
