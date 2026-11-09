@@ -2,10 +2,14 @@ services:
   - type: web
     name: hachihi-pickleball
     runtime: node
-    plan: free
+    plan: free            # free instances sleep after ~15 min idle and drop all rooms on restart; use "starter" for events
     buildCommand: npm install --include=dev && npm test && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: ROOM_GRACE_MS       # seat kept for a silent guest before a BOT takes over
+        value: 45000
+      - key: MAX_ROOMS           # protects the small free instance
+        value: 300

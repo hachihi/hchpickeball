@@ -154,3 +154,42 @@ html.is-touch .shot-chip,
 html.is-touch .wii-footer-btn,
 html.is-touch .wii-pill-btn{min-height:40px}
 html.is-touch input,html.is-touch select,html.is-touch textarea{font-size:16px} /* chống iOS tự zoom khi nhập */
+
+/* ===== Online lobby: join card, sound box, mobile fit (appended last so it wins) ===== */
+#guest-join-card{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:rgba(6,10,24,.82);overflow:auto}
+#guest-join-card.hidden{display:none!important}
+.gjc-box{width:min(94vw,420px);max-height:100%;overflow:auto;background:#0f141c;border:2.5px solid #2b394d;border-radius:18px;padding:18px 18px 16px;color:#f8fafc;font-family:var(--wii-font,system-ui,sans-serif);box-shadow:0 0 40px rgba(0,0,0,.85),0 0 18px rgba(255,234,40,.15)}
+.gjc-title{margin:0 0 12px;font-size:clamp(18px,5vw,22px);color:#ffea28}
+.gjc-rows{display:grid;gap:6px;margin-bottom:12px}
+.gjc-row{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;background:#0d141e;border:1px solid #1e293b;border-radius:10px;font-size:14px}
+.gjc-row span{color:#94a3b8}.gjc-row strong{color:#f8fafc;text-align:right;word-break:break-word}
+.gjc-label{display:block;margin:4px 0 6px;font-size:13px;color:#94a3b8}
+.gjc-input{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border-radius:10px;border:2px solid #334155;background:#090e14;color:#fff}
+.gjc-input:focus{outline:none;border-color:#ffea28}
+.gjc-error{margin-top:10px;padding:8px 10px;border-radius:10px;background:#3b1111;border:1px solid #ef4444;color:#fecaca;font-size:13px}
+.gjc-error.hidden{display:none}
+.gjc-start{width:100%;margin-top:14px;padding:14px;font-size:17px;font-weight:900;border:0;border-radius:12px;background:#22c55e;color:#04210f;cursor:pointer;touch-action:manipulation}
+.gjc-start:disabled{background:#334155;color:#94a3b8;cursor:not-allowed}
+.gjc-cancel{width:100%;margin-top:8px;padding:10px;font-size:14px;border:0;border-radius:10px;background:transparent;color:#94a3b8;cursor:pointer}
+.lobby-sound-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.btn-lobby-sound{flex:1 1 150px;padding:10px 12px;font-size:14px;font-weight:800;border-radius:10px;border:2px solid #334155;background:#111a26;color:#cbd5e1;cursor:pointer;touch-action:manipulation}
+.btn-lobby-sound.active{border-color:#22c55e;color:#bbf7d0}
+.lobby-qr-card.guest-compact .lobby-qr-frame,.lobby-qr-card.guest-compact .lobby-qr-desc,.lobby-qr-card.guest-compact .lobby-qr-title{display:none}
+.lobby-qr-card.guest-compact{padding:8px 12px}
+#room-lobby-modal .tank-lobby-card{width:min(840px,96vw);max-height:calc(100vh - 12px);max-height:calc(100dvh - 12px)}
+#room-lobby-modal{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#room-lobby-modal .tank-scroll-body{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#room-lobby-modal .tank-footer{position:sticky;bottom:0;z-index:2;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+@media (max-width:640px){
+  #room-lobby-modal .tank-scroll-body{padding:10px 10px}
+  #room-lobby-modal .guest-roster-box{grid-template-columns:1fr}
+  #room-lobby-modal .guest-roster-vs{text-align:center}
+  #room-lobby-modal .guest-summary-grid{grid-template-columns:1fr 1fr}
+  #room-lobby-modal .tank-footer{flex-direction:column}
+  .tank-player-name-row{flex-wrap:wrap}
+  .lobby-qr-card .lobby-qr-link-row{flex-wrap:wrap}
+}
+@media (max-height:500px) and (orientation:landscape){
+  #room-lobby-modal .tank-lobby-card{max-height:calc(100dvh - 6px)}
+  .gjc-box{padding:12px}.gjc-rows{grid-template-columns:1fr 1fr}
+}

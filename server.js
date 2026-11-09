@@ -5,145 +5,19 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { createApi } from "./server/api.js";
+import { handleApiRequest } from "./server/http.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const DIST_DIR = path.resolve(__dirname, "dist");
 
-// In-memory room & tournament state
-const rooms = new Map();
-const tournaments = new Map();
-
-function createDefaultSlots(matchType = "doubles", hostName = "Hachihi Pro") {
-  const isDoubles = matchType === "doubles";
-  const slots = [
-    {
-      slotId: "A1",
-      teamCode: "A",
-      slotNumber: 1,
-      playerType: "human",
-      playerId: "p1",
-      playerName: hostName || "Hachihi Pro",
-      status: "ready",
-      avatar: "player1"
-    }
-  ];
-
-  if (isDoubles) {
-    slots.push({
-      slotId: "A2",
-      teamCode: "A",
-      slotNumber: 2,
-      playerType: "empty",
-      botId: null,
-      playerName: "Vị trí A2 (Đang chờ...)",
-      botDifficulty: null,
-      status: "waiting",
-      avatar: "player2"
-    });
-  }
-
-  slots.push({
-    slotId: "B1",
-    teamCode: "B",
-    slotNumber: 1,
-    playerType: "empty",
-    botId: null,
-    playerName: "Vị trí B1 (Đang chờ...)",
-    botDifficulty: null,
-    status: "waiting",
-    avatar: "opponent1"
-  });
-
-  if (isDoubles) {
-    slots.push({
-      slotId: "B2",
-      teamCode: "B",
-      slotNumber: 2,
-      playerType: "empty",
-      botId: null,
-      playerName: "Vị trí B2 (Đang chờ...)",
-      botDifficulty: null,
-      status: "waiting",
-      avatar: "opponent2"
-    });
-  }
-
-  return slots;
-}
-
-function initRoom(roomId, hostName = "Hachihi Pro", matchType = "doubles", gamesToWin = 2) {
-  return {
-    roomId,
-    matchType,
-    hostName,
-    guestName: "Challenger",
-    gamesToWin,
-    teamAName: "Đội A",
-    teamBName: "Đội B",
-    teamAColor: "#ffea28",
-    teamBColor: "#25a8f5",
-    botDifficulty: "normal",
-    scenery: "landmark81",
-    isPublic: true,
-    started: false,
-    slots: createDefaultSlots(matchType, hostName),
-    messages: [
-      {
-        id: "msg_init_" + Date.now(),
-        sender: "Hệ thống",
-        role: "system",
-        team: "SYS",
-        text: "Chào mừng đến với phòng Pickleball Hachihi! Hãy sẵn sàng thi đấu.",
-        timestamp: Date.now()
-      }
-    ],
-    stateSeq: 0,
-    matchSnapshot: null,
-    p1DesktopSeenTs: 0,
-    p2DesktopSeenTs: 0,
-    createdAt: Date.now()
-  };
-}
-
-rooms.set("default", initRoom("10150"));
-rooms.set("10150", initRoom("10150"));
-
-function getRoom(roomId, matchType = "doubles") {
-  const id = (roomId || "10150").toUpperCase();
-  let r = rooms.get(id);
-  if (!r) {
-    r = initRoom(id, "Host", matchType);
-    rooms.set(id, r);
-  }
-  return r;
-}
-
-function parseJsonBody(req) {
-  return new Promise((resolve) => {
-    const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => {
-      try {
-        const str = Buffer.concat(chunks).toString("utf-8");
-        resolve(str ? JSON.parse(str) : {});
-      } catch {
-        resolve({});
-      }
-    });
-    req.on("error", () => resolve({}));
-  });
-}
-
-function sendJson(res, status, data) {
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.end(JSON.stringify(data));
-}
+const api = createApi();
+const GZIP_EXT = new Set([".html", ".js", ".mjs", ".css", ".json", ".svg"]);
+const gzCache = new Map();
 
 const MIME_MAP = {
   ".html": "text/html; charset=utf-8",
@@ -161,436 +35,77 @@ const MIME_MAP = {
 };
 
 const server = http.createServer(async (req, res) => {
+  try { await onRequest(req, res); } catch (e) {          // one bad request must never take the room server down
+    console.error("[server] request failed:", e && e.stack || e);
+    try { if (!res.headersSent) { res.statusCode = 500; res.setHeader("Content-Type", "application/json"); } res.end('{"ok":false,"error":"INTERNAL"}'); } catch {}
+  }
+});
+process.on("uncaughtException", (e) => console.error("[server] uncaughtException:", e && e.stack || e));
+process.on("unhandledRejection", (e) => console.error("[server] unhandledRejection:", e && e.stack || e));
+
+async function onRequest(req, res) {
   const parsedUrl = new URL(req.url || "/", `http://localhost:${PORT}`);
   const pathname = parsedUrl.pathname;
 
-  // CORS headers
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.end();
+  // --- API Endpoints (logic lives in server/api.js, shared with vite dev server) ---
+  if (pathname.startsWith("/api/")) {
+    await handleApiRequest(api, req, res, `http://localhost:${PORT}`);
     return;
   }
 
-  // --- API Endpoints ---
-  if (pathname.startsWith("/api/")) {
-    const roomId = (parsedUrl.searchParams.get("room") || "10150").toUpperCase();
-    const room = getRoom(roomId);
-
-    // GET /api/match/state
-    if (req.method === "GET" && pathname === "/api/match/state") {
-      const touch = parsedUrl.searchParams.get("touch");
-      if (touch === "p1") room.p1DesktopSeenTs = Date.now();
-      if (touch === "p2") room.p2DesktopSeenTs = Date.now();
-      const now = Date.now();
-
-      sendJson(res, 200, {
-        ok: true,
-        roomId: room.roomId,
-        matchType: room.matchType,
-        hostName: room.hostName,
-        guestName: room.guestName,
-        gamesToWin: room.gamesToWin,
-        teamAName: room.teamAName || "Đội A",
-        teamBName: room.teamBName || "Đội B",
-        teamAColor: room.teamAColor || "#ffea28",
-        teamBColor: room.teamBColor || "#25a8f5",
-        botDifficulty: room.botDifficulty || "normal",
-        isPublic: room.isPublic !== false,
-        started: !!room.started,
-        slots: room.slots,
-        messages: (room.messages || []).slice(-40),
-        p1Online: (now - room.p1DesktopSeenTs) < 8000,
-        p2Online: (now - room.p2DesktopSeenTs) < 8000,
-        snapshotSeq: room.stateSeq,
-        snapshot: room.matchSnapshot
-      });
-      return;
-    }
-
-    // GET /api/match/chat
-    if (req.method === "GET" && pathname === "/api/match/chat") {
-      sendJson(res, 200, {
-        ok: true,
-        roomId: room.roomId,
-        messages: (room.messages || []).slice(-50)
-      });
-      return;
-    }
-
-    // POST /api/match/create
-    if (req.method === "POST" && pathname === "/api/match/create") {
-      const body = await parseJsonBody(req);
-      const newRoomId = String(Math.floor(10000 + Math.random() * 90000));
-      const matchType = body.matchType === "singles" ? "singles" : "doubles";
-      const hostName = body.p1Name || body.hostName || "Hachihi Pro";
-      const newRoom = initRoom(newRoomId, hostName, matchType, Number(body.gamesToWin || 2));
-      if (body.teamAName) newRoom.teamAName = body.teamAName;
-      if (body.teamBName) newRoom.teamBName = body.teamBName;
-      if (body.teamAColor) newRoom.teamAColor = body.teamAColor;
-      if (body.teamBColor) newRoom.teamBColor = body.teamBColor;
-      rooms.set(newRoomId, newRoom);
-
-      sendJson(res, 200, {
-        ok: true,
-        roomId: newRoomId,
-        matchType: newRoom.matchType,
-        hostName: newRoom.hostName,
-        slots: newRoom.slots,
-        joinUrl: `/?room=${newRoomId}&role=p2`
-      });
-      return;
-    }
-
-    // POST /api/match/chat
-    if (req.method === "POST" && pathname === "/api/match/chat") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      const sender = String(body.sender || "Người chơi");
-      const text = String(body.text || "").trim();
-      if (text) {
-        const newMsg = {
-          id: "msg_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-          sender,
-          role: body.role || "human",
-          team: body.team || "A",
-          text,
-          timestamp: Date.now()
-        };
-        targetRoom.messages = targetRoom.messages || [];
-        targetRoom.messages.push(newMsg);
-        if (targetRoom.messages.length > 80) targetRoom.messages.shift();
-      }
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, messages: targetRoom.messages });
-      return;
-    }
-
-    // POST /api/match/start
-    if (req.method === "POST" && pathname === "/api/match/start") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      targetRoom.started = true;
-      targetRoom.messages = targetRoom.messages || [];
-      targetRoom.messages.push({
-        id: "msg_start_" + Date.now(),
-        sender: "Hệ thống",
-        role: "system",
-        team: "SYS",
-        text: `▶ ${targetRoom.hostName || "Chủ phòng"} đã BẮT ĐẦU TRẬN ĐẤU! Cùng vào sân!`,
-        timestamp: Date.now()
-      });
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, started: true });
-      return;
-    }
-
-    // POST /api/match/team/update
-    if (req.method === "POST" && pathname === "/api/match/team/update") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      if (body.teamAName) targetRoom.teamAName = String(body.teamAName);
-      if (body.teamBName) targetRoom.teamBName = String(body.teamBName);
-      if (body.teamAColor) targetRoom.teamAColor = String(body.teamAColor);
-      if (body.teamBColor) targetRoom.teamBColor = String(body.teamBColor);
-      if (body.botDifficulty) {
-        targetRoom.botDifficulty = String(body.botDifficulty);
-        // Đổi cấp độ -> áp cho mọi bot đang có trong phòng
-        for (const sl of targetRoom.slots) if (sl.playerType === "bot") sl.botDifficulty = targetRoom.botDifficulty;
-      }
-      if (body.scenery) targetRoom.scenery = String(body.scenery);
-      if (body.isPublic !== undefined) targetRoom.isPublic = !!body.isPublic;
-      if (body.gamesToWin) targetRoom.gamesToWin = Number(body.gamesToWin);
-      if (body.matchType && body.matchType !== targetRoom.matchType) {
-        targetRoom.matchType = body.matchType;
-        targetRoom.slots = createDefaultSlots(targetRoom.matchType, targetRoom.hostName);
-      }
-      sendJson(res, 200, {
-        ok: true,
-        roomId: targetRoom.roomId,
-        teamAName: targetRoom.teamAName,
-        teamBName: targetRoom.teamBName,
-        matchType: targetRoom.matchType,
-        scenery: targetRoom.scenery,
-        slots: targetRoom.slots
-      });
-      return;
-    }
-
-    // POST /api/match/slot/switch-team
-    if (req.method === "POST" && pathname === "/api/match/slot/switch-team") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      const slotId = body.slotId;
-      const currentSlot = targetRoom.slots.find((s) => s.slotId === slotId);
-      if (currentSlot) {
-        const currentTeam = currentSlot.teamCode;
-        const targetTeam = currentTeam === "A" ? "B" : "A";
-        const targetSlot = targetRoom.slots.find(
-          (s) => s.teamCode === targetTeam && (s.playerType === "empty" || s.playerType === "bot")
-        );
-        if (targetSlot) {
-          const prevData = {
-            playerType: currentSlot.playerType,
-            playerId: currentSlot.playerId,
-            playerName: currentSlot.playerName,
-            botId: currentSlot.botId,
-            botDifficulty: currentSlot.botDifficulty,
-            status: currentSlot.status,
-            avatar: currentSlot.avatar
-          };
-          currentSlot.playerType = targetSlot.playerType;
-          currentSlot.playerId = targetSlot.playerId;
-          currentSlot.playerName = targetSlot.playerName;
-          currentSlot.botId = targetSlot.botId;
-          currentSlot.botDifficulty = targetSlot.botDifficulty;
-          currentSlot.status = targetSlot.status;
-
-          targetSlot.playerType = prevData.playerType;
-          targetSlot.playerId = prevData.playerId;
-          targetSlot.playerName = prevData.playerName;
-          targetSlot.botId = prevData.botId;
-          targetSlot.botDifficulty = prevData.botDifficulty;
-          targetSlot.status = prevData.status;
-
-          targetRoom.messages.push({
-            id: "msg_team_" + Date.now(),
-            sender: "Hệ thống",
-            role: "system",
-            team: "SYS",
-            text: `${prevData.playerName || "Người chơi"} đã chuyển sang Đội ${targetTeam}`,
-            timestamp: Date.now()
-          });
-        }
-      }
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
-      return;
-    }
-
-    // POST /api/match/slot/update (Thêm BOT, đổi cấp độ, gán slot)
-    if (req.method === "POST" && pathname === "/api/match/slot/update") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      const slot = targetRoom.slots.find((s) => s.slotId === body.slotId);
-
-      if (slot) {
-        if (body.playerType) slot.playerType = body.playerType;
-        if (body.botDifficulty) slot.botDifficulty = body.botDifficulty;
-        if (body.playerName) {
-          slot.playerName = String(body.playerName).slice(0, 16);
-          if (slot.slotId === "A1") targetRoom.hostName = slot.playerName;
-        }
-        if (body.botId) slot.botId = body.botId;
-        if (body.status) slot.status = body.status;
-      }
-
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
-      return;
-    }
-
-    // POST /api/match/slot/move (Kéo thả tráo đổi hoặc chuyển đội)
-    if (req.method === "POST" && pathname === "/api/match/slot/move") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      const fromSlotId = body.fromSlotId;
-      const toSlotId = body.toSlotId;
-      const targetTeam = body.targetTeam;
-      const fromSlot = targetRoom.slots.find((s) => s.slotId === fromSlotId);
-      if (fromSlot) {
-        let toSlot = toSlotId ? targetRoom.slots.find((s) => s.slotId === toSlotId) : null;
-        if (!toSlot && targetTeam) {
-          toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.playerType === "empty");
-          if (!toSlot) {
-            toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.playerType === "bot");
-          }
-          if (!toSlot) {
-            toSlot = targetRoom.slots.find((s) => s.teamCode === targetTeam && s.slotId !== fromSlotId);
-          }
-        }
-        if (toSlot && toSlot.slotId !== fromSlot.slotId) {
-          const temp = {
-            playerType: fromSlot.playerType,
-            playerId: fromSlot.playerId,
-            playerName: fromSlot.playerName,
-            botId: fromSlot.botId,
-            botDifficulty: fromSlot.botDifficulty,
-            status: fromSlot.status,
-            avatar: fromSlot.avatar
-          };
-          fromSlot.playerType = toSlot.playerType;
-          fromSlot.playerId = toSlot.playerId;
-          fromSlot.playerName = toSlot.playerName;
-          fromSlot.botId = toSlot.botId;
-          fromSlot.botDifficulty = toSlot.botDifficulty;
-          fromSlot.status = toSlot.status;
-
-          toSlot.playerType = temp.playerType;
-          toSlot.playerId = temp.playerId;
-          toSlot.playerName = temp.playerName;
-          toSlot.botId = temp.botId;
-          toSlot.botDifficulty = temp.botDifficulty;
-          toSlot.status = temp.status;
-
-          targetRoom.messages.push({
-            id: "msg_move_" + Date.now(),
-            sender: "Hệ thống",
-            role: "system",
-            team: "SYS",
-            text: `Vị trí đã được điều chỉnh: ${fromSlotId} ⇄ ${toSlot.slotId}`,
-            timestamp: Date.now()
-          });
-        }
-      }
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
-      return;
-    }
-
-    // POST /api/match/slot/join (Người thật tham gia slot trống)
-    if (req.method === "POST" && pathname === "/api/match/slot/join") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      let slot = targetRoom.slots.find((s) => s.slotId === body.slotId && s.playerType !== "human");
-      if (!slot) {
-        slot = targetRoom.slots.find((s) => s.playerType === "empty") ||
-               targetRoom.slots.find((s) => s.playerType === "bot");
-      }
-      if (!slot) {
-        sendJson(res, 409, { ok: false, error: "ROOM_FULL", roomId: targetRoom.roomId });
-        return;
-      }
-
-      if (slot) {
-        slot.playerType = "human";
-        slot.playerId = body.playerId || `human-${Date.now()}`;
-        slot.playerName = body.playerName || "Vận động viên";
-        slot.botId = null;
-        slot.botDifficulty = null;
-        slot.status = "ready";
-
-        targetRoom.messages.push({
-          id: "msg_join_" + Date.now(),
-          sender: "Hệ thống",
-          role: "system",
-          team: "SYS",
-          text: `${slot.playerName} đã tham gia vị trí ${slot.slotId} (Đội ${slot.teamCode})!`,
-          timestamp: Date.now()
-        });
-      }
-
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, assignedSlot: slot.slotId, slots: targetRoom.slots });
-      return;
-    }
-
-    // POST /api/match/leave
-    if (req.method === "POST" && pathname === "/api/match/leave") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      const targetSlot = targetRoom.slots.find((s) => s.slotId === body.slotId || s.playerId === body.playerId);
-      if (targetSlot && targetSlot.slotId !== "A1") {
-        const name = targetSlot.playerName;
-        targetSlot.playerType = "bot";
-        targetSlot.botId = `BOT_${targetSlot.slotId}`;
-        targetSlot.playerName = targetSlot.teamCode === "A" ? "Maya (AI)" : "Matt (AI)";
-        targetSlot.botDifficulty = targetRoom.botDifficulty || "normal";
-        targetSlot.status = "ready";
-
-        targetRoom.messages.push({
-          id: "msg_leave_" + Date.now(),
-          sender: "Hệ thống",
-          role: "system",
-          team: "SYS",
-          text: `${name} đã rời phòng. Máy BOT tự động thế chỗ.`,
-          timestamp: Date.now()
-        });
-      }
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, slots: targetRoom.slots });
-      return;
-    }
-
-    // POST /api/match/sync (Đồng bộ snapshot bóng và vị trí)
-    if (req.method === "POST" && pathname === "/api/match/sync") {
-      const body = await parseJsonBody(req);
-      const targetRoom = getRoom(body.room || roomId);
-      targetRoom.stateSeq += 1;
-      targetRoom.p1DesktopSeenTs = Date.now();
-      targetRoom.matchSnapshot = {
-        ...(body.snapshot || body),
-        seq: targetRoom.stateSeq,
-        serverTimeMs: Date.now()
-      };
-      sendJson(res, 200, { ok: true, roomId: targetRoom.roomId, seq: targetRoom.stateSeq });
-      return;
-    }
-
-    // POST /api/racket/swing
-    if (req.method === "POST" && pathname === "/api/racket/swing") {
-      const body = await parseJsonBody(req);
-      sendJson(res, 200, { ok: true, swing: body });
-      return;
-    }
-
-    // GET /api/tournament/bracket
-    if (req.method === "GET" && pathname === "/api/tournament/bracket") {
-      sendJson(res, 200, {
-        ok: true,
-        tournament: {
-          id: "TOUR-HACHIHI-2026",
-          name: "Pickleball Hachihi Mở Rộng 2026",
-          matchType: room.matchType,
-          allowBots: true,
-          rounds: [
-            {
-              roundName: "Bán kết (Semi-Finals)",
-              matches: [
-                { matchId: "SF-1", teamA: "Hachihi Pro & Maya", teamB: "Matt (AI) & Akira (AI)", winner: null },
-                { matchId: "SF-2", teamA: "CLB Hoàng Mai (Human)", teamB: "CLB Thủ Đức (AI)", winner: null }
-              ]
-            },
-            {
-              roundName: "Chung kết (Final)",
-              matches: [
-                { matchId: "FINALS", teamA: "Thắng Bán Kết 1", teamB: "Thắng Bán Kết 2", winner: null }
-              ]
-            }
-          ]
-        }
-      });
-      return;
-    }
+  if (pathname === "/healthz") {                       // cheap probe for Render / uptime monitors (does not touch rooms)
+    res.statusCode = 200; res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
+    res.end(JSON.stringify({ ok: true, rooms: api.rooms.size, uptimeSec: Math.round(process.uptime()) }));
+    return;
   }
 
-  // --- Static Asset Serving (Production mode / Render.com) ---
-  let filePath = path.join(DIST_DIR, pathname === "/" ? "index.html" : pathname);
-  
-  // If not built yet or running in root, fallback to applet root
-  if (!fs.existsSync(DIST_DIR)) {
-    filePath = path.join(__dirname, pathname === "/" ? "index.html" : pathname);
+  // --- Static files (dist/ in production) ---
+  const root = fs.existsSync(DIST_DIR) ? DIST_DIR : __dirname;
+  let rel;
+  try { rel = decodeURIComponent(pathname); } catch { rel = "/"; }
+  let filePath = path.resolve(root, "." + (rel === "/" ? "/index.html" : rel));
+  if (filePath !== root && !filePath.startsWith(root + path.sep)) {   // block ../ escapes
+    res.statusCode = 403; res.end("Forbidden"); return;
   }
-
-  // Fallback to index.html for SPA routing
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    filePath = fs.existsSync(path.join(DIST_DIR, "index.html"))
-      ? path.join(DIST_DIR, "index.html")
-      : path.join(__dirname, "index.html");
+  const exists = (f) => { try { return fs.statSync(f).isFile(); } catch { return false; } };
+  if (!exists(filePath)) {
+    // A missing file WITH an extension (model, mp3, texture...) must be a real 404: answering with
+    // index.html made the loaders choke on HTML. Only extension-less routes fall back to the SPA page.
+    if (path.extname(rel)) { res.statusCode = 404; res.setHeader("Content-Type", "text/plain; charset=utf-8"); res.end("404 Not Found"); return; }
+    filePath = path.join(root, "index.html");
   }
 
   try {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_MAP[ext] || "application/octet-stream";
-    const data = fs.readFileSync(filePath);
-
+    const stat = fs.statSync(filePath);
+    const hashed = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.(js|css)$/.test(filePath);   // Vite content-hashed bundles only
     res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Length", data.length);
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.end(data);
+    res.setHeader("Cache-Control", ext === ".html" ? "no-cache" : hashed ? "public, max-age=31536000, immutable" : "public, max-age=3600");
+    const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) { res.statusCode = 304; res.end(); return; }
+    if (req.method === "HEAD") { res.setHeader("Content-Length", stat.size); res.end(); return; }
+    // gzip text assets once and keep them in memory: the 1.1 MB bundle becomes ~310 KB on Render's slow free tier.
+    if (GZIP_EXT.has(ext) && /\bgzip\b/.test(String(req.headers["accept-encoding"] || ""))) {
+      const key = filePath + "|" + stat.mtimeMs;
+      let gz = gzCache.get(key);
+      if (!gz) { gz = zlib.gzipSync(fs.readFileSync(filePath), { level: 6 }); gzCache.set(key, gz); }
+      res.setHeader("Content-Encoding", "gzip"); res.setHeader("Vary", "Accept-Encoding"); res.setHeader("Content-Length", gz.length);
+      res.end(gz); return;
+    }
+    res.setHeader("Content-Length", stat.size);
+    fs.createReadStream(filePath).on("error", () => res.destroy()).pipe(res);
   } catch (err) {
     res.statusCode = 404;
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("404 Not Found");
   }
-});
+}
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[Pickleball Server] Running on http://0.0.0.0:${PORT} (Render / Production ready)`);
+  console.log(`[Pickleball Server] rooms are kept in RAM: a restart/sleep drops them (clients are told ROOM_NOT_FOUND)`);
 });

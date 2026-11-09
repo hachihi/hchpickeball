@@ -981,8 +981,8 @@
               <h5 class="subcard-title">🏷️ Chữ Trên Đầu Nhân Vật</h5>
               <div class="setting-row">
                 <div class="setting-info">
-                  <div class="setting-title">Hiện tên / chữ "BẠN" trên đầu</div>
-                  <div class="setting-desc">Bật: hiện nhãn "BẠN" và tên người chơi trên đầu từng nhân vật. Tắt: chỉ còn vòng sáng dưới chân, sân thoáng hơn.</div>
+                  <div class="setting-title">Hiện tên trên đầu nhân vật</div>
+                  <div class="setting-desc">Bật: hiện tên (chữ nhỏ) trên đầu mỗi nhân vật. Tắt: chỉ còn vòng sáng dưới chân người đang chơi, sân thoáng hơn.</div>
                 </div>
                 <div class="setting-ctrl">
                   <label class="portal-switch">
@@ -1141,6 +1141,23 @@
     </div>
   </div>
   <!-- Tank Battle 1990 Style Multiplayer Room Lobby Modal -->
+  <div id="guest-join-card" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gjc-title">
+    <div class="gjc-box">
+      <h2 id="gjc-title" class="gjc-title">🏓 Lời mời vào phòng</h2>
+      <div class="gjc-rows">
+        <div class="gjc-row"><span>Mã phòng</span><strong id="gjc-code">-----</strong></div>
+        <div class="gjc-row"><span>Chủ phòng</span><strong id="gjc-host">...</strong></div>
+        <div class="gjc-row"><span>Thể thức</span><strong id="gjc-mode">...</strong></div>
+        <div class="gjc-row"><span>Đã vào phòng</span><strong id="gjc-count">...</strong></div>
+      </div>
+      <label class="gjc-label" for="gjc-name">Tên của bạn</label>
+      <input id="gjc-name" class="gjc-input" type="text" maxlength="16" placeholder="Nhập tên rồi bấm Bắt đầu" autocomplete="nickname" />
+      <div id="gjc-error" class="gjc-error hidden"></div>
+      <button type="button" id="gjc-start" class="gjc-start" disabled>▶ BẮT ĐẦU</button>
+      <button type="button" id="gjc-cancel" class="gjc-cancel">Hủy</button>
+    </div>
+  </div>
+
   <div id="room-lobby-modal" class="wii-modal-backdrop hidden">
     <div class="tank-lobby-card">
       <!-- Modal Header: Tank Battle Style -->
@@ -1538,6 +1555,19 @@
             </div>
           </div>
         </div>
+
+        <!-- SECTION: ÂM THANH PHÒNG (CHỦ PHÒNG CHỌN) -->
+        <div class="tank-section-box" id="lobby-sound-box">
+          <div class="tank-section-heading">
+            <span class="heading-icon">🎵</span>
+            <span>ÂM THANH PHÒNG (CHỦ PHÒNG CHỌN):</span>
+          </div>
+          <div class="lobby-sound-row">
+            <button type="button" id="lobby-sound-music" class="btn-lobby-sound active" aria-pressed="true">🔊 Nhạc nền: BẬT</button>
+            <button type="button" id="lobby-sound-sfx" class="btn-lobby-sound active" aria-pressed="true">🔊 Hiệu ứng: BẬT</button>
+          </div>
+          <p class="tank-section-sub">Áp dụng cho cả phòng lúc vào trận. Mỗi người vẫn có thể tắt âm trên máy của mình.</p>
+        </div>
       </div>
 
         <!-- SECTION 5: TRÒ CHUYỆN PHÒNG (CHAT BOX) -->
@@ -1641,6 +1671,7 @@
     import { renderAllHudMiiAvatars } from './src/mii_avatars.js';
     renderAllHudMiiAvatars();
   </script>
+  <script type="module" src="./src/session_client.js"></script>
   <script type="module" src="./src/mobile_ux.js"></script>
   <script type="module" src="./src/hud_menu.js"></script>
   <script type="module" src="./src/hud_sound.js"></script>
