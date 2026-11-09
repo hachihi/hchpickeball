@@ -16,6 +16,7 @@ export class MatchManager {
     this.isHost = true;
     this.localPlayerSlot = "A1";
     this.scenery = "landmark81";
+    this.sound = { music: true, sfx: true };
     this.currentMatch = null;
     this.slots = [];
     this.messages = [];
@@ -460,6 +461,9 @@ export class MatchManager {
     if (serverData.teamBColor) this.teamBColor = serverData.teamBColor;
     if (serverData.botDifficulty) this.botDifficulty = serverData.botDifficulty;
     if (serverData.scenery) this.scenery = serverData.scenery;
+    if (serverData.sound) this.sound = { music: serverData.sound.music !== false, sfx: serverData.sound.sfx !== false };
+    // the server owns seat assignment: a guest moved/re-seated by the host must follow it, or swings go to the wrong actor
+    if (!this.isHost && serverData.mySlot) this.localPlayerSlot = serverData.mySlot;
     if (serverData.messages && Array.isArray(serverData.messages)) {
       this.messages = serverData.messages;
     }

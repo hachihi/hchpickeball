@@ -279,7 +279,7 @@ export class HudUI {
   _initUrlParamsState() {
     const t = new URLSearchParams(window.location.search),
       n = (t.get("room") || "").trim().toUpperCase(),
-      e = (t.get("role") || "p1").trim().toLowerCase() === "p2" ? "p2" : "p1",
+      e = ["p2", "p3", "p4"].includes((t.get("role") || "p1").trim().toLowerCase()) ? "p2" : "p1",
       i = (t.get("mode") || t.get("difficulty") || "").toLowerCase();
 
     if (
@@ -513,6 +513,7 @@ export class HudUI {
           if (data.assignedSlot) {
             this.matchManager.localPlayerSlot = data.assignedSlot;
           }
+          this._joinedRoomId = code;
           if (data.slots && Array.isArray(data.slots)) {
             this.matchManager.slots = data.slots;
           }
@@ -1362,6 +1363,15 @@ export class HudUI {
           const data = await res.json();
           // drop stale / foreign responses so another room can never overwrite this lobby
           if (gen !== this._pollGen || String(data.roomId).toUpperCase() !== rid.toUpperCase()) return;
+          this.matchManager.syncFromServer(data);   // always start from the server's latest slots/settings
+          if (!this.matchManager.isHost && data.mySlot === null && this._joinedRoomId === rid && !this._matchStartedLocally) {
+            this.stopLobbyPolling();
+            try { window.hachihiSession && window.hachihiSession.clear(rid); } catch {}
+            this.closeRoomLobbyModal();
+            try { this.showTitleModal && this.showTitleModal(); } catch {}
+            alert("Bạn không còn trong phòng " + rid + " (chủ phòng đã mời ra hoặc mất kết nối quá lâu). Hãy vào lại bằng link/mã phòng.");
+            return;
+          }
           if (data.started && !this._matchStartedLocally) {
             this._matchStartedLocally = true;
             this.stopLobbyPolling();
@@ -1378,6 +1388,13 @@ export class HudUI {
           }
           this.matchManager.syncFromServer(data);
           this.updateLobbyUI();
+        } else if (res.status === 404 && gen === this._pollGen) {
+          // room expired or the server restarted: stop polling instead of failing silently
+          this.stopLobbyPolling();
+          try { window.hachihiSession && window.hachihiSession.clear(rid); } catch {}
+          this.closeRoomLobbyModal();
+          try { this.showTitleModal && this.showTitleModal(); } catch {}
+          alert("Phòng " + rid + " đã hết hạn hoặc không còn tồn tại. Hãy tạo phòng mới hoặc nhập lại mã phòng.");
         }
       } catch {}
     };
@@ -1512,7 +1529,17 @@ export class HudUI {
       if (btnStart) { btnStart.classList.add("hidden"); btnStart.style.display = "none"; }
       if (condBanner) { condBanner.classList.add("hidden"); condBanner.style.display = "none"; }
       this._renderGuestLobby();
+      ["guest-summary-scenery", "guest-summary-bot-speed", "guest-summary-room-code"].forEach((id) => {
+        const it = document.getElementById(id) && document.getElementById(id).closest(".guest-info-item");
+        if (it) it.style.display = "none";
+      });
+      const qrc = document.getElementById("lobby-qr-container");
+      if (qrc) qrc.classList.add("guest-compact");
+      // guests already typed their name on the join card
+      const nmIn = document.getElementById("tank-player-name-input");
+      if (nmIn) { nmIn.style.display = "none"; const lb = document.querySelector('label[for="tank-player-name-input"]'); if (lb) lb.style.display = "none"; }
     }
+    if (isHost) { const qrc = document.getElementById("lobby-qr-container"); if (qrc) qrc.classList.remove("guest-compact"); this._initSoundControls(); this._syncSoundButtons(); }
 
     // 4. Render tin nhắn chat
     this.renderChatMessages();
@@ -1744,7 +1771,7 @@ export class HudUI {
           </div>`;
       } else {
         html += `
-          <div class="tank-member-row ${isHostSlot ? 'host-member' : 'human-member'}" id="row-slot-${slot.slotId}" data-slot="${slot.slotId}" draggable="true" title="Kéo thả để đổi vị trí hoặc chuyển đội">
+          <div class="tank-member-row ${isHostSlot ? 'host-member' : 'human-member'}" id="row-slot-${slot.slotId}" data-slot="${slot.slotId}" draggable="${isHostSlot ? 'false' : 'true'}" title="Kéo thả để đổi vị trí hoặc chuyển đội">
             <div class="member-info-col">
               <span class="member-prefix">${slot.slotId}</span>
               <strong class="member-name" id="name-${slot.slotId}">${slot.playerName || "Người chơi"}</strong>
@@ -1754,7 +1781,7 @@ export class HudUI {
               <span class="member-status-badge ready">SẴN SÀNG</span>
             </div>
             <div class="member-actions-col">
-              <button type="button" class="btn-switch-team" data-slot="${slot.slotId}" title="Chuyển sang Đội ${otherTeam}">⇄ Đội ${otherTeam}</button>
+              ${!isHostSlot ? `<button type="button" class="btn-switch-team" data-slot="${slot.slotId}" title="Chuyển sang Đội ${otherTeam}">⇄ Đội ${otherTeam}</button>` : ''}
               ${!isHostSlot ? `<button type="button" class="btn-remove-slot" data-slot="${slot.slotId}" title="Mời người này ra khỏi phòng">✕</button>` : ''}
             </div>
           </div>`;
@@ -2260,7 +2287,7 @@ export class HudUI {
     const n = { ...(this._lastRoomStatus || {}), ...t };
     this._lastRoomStatus = n;
     n.roomId && !this._lockedRoomId && String(n.roomId).toLowerCase() !== "default" && (this.currentRoomId = String(n.roomId));
-    n.role && (this.playerRole = String(n.role).toLowerCase() === "p2" ? "p2" : "p1");
+    n.role && (this.playerRole = ["p2", "p3", "p4"].includes(String(n.role).toLowerCase()) ? "p2" : "p1");
     if (n.tunnelUrl) {
       this.currentTunnelUrl = String(n.tunnelUrl).replace(/\/+$/, "");
       const d = document.getElementById("tunnel-url-input");
@@ -2373,6 +2400,95 @@ export class HudUI {
     if (this.matchManager) {
       this.matchManager.setScenery(scId);
     }
+    this._postRoomSetting({ scenery: scId });
+  }
+
+  // Host-only room settings are stored on the server so every player sees the same game.
+  _postRoomSetting(patch) {
+    try {
+      if (!this.matchManager || !this.matchManager.isHost || !this._lockedRoomId) return;
+      fetch("/api/match/team/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: this._lockedRoomId, ...patch })
+      }).catch(() => {});
+    } catch {}
+  }
+
+  _syncSoundButtons() {
+    const snd = this.matchManager.sound || { music: true, sfx: true };
+    const set = (id, on, label) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("active", !!on);
+      el.setAttribute("aria-pressed", on ? "true" : "false");
+      el.textContent = (on ? "🔊 " : "🔇 ") + label + (on ? ": BẬT" : ": TẮT");
+    };
+    set("lobby-sound-music", snd.music, "Nhạc nền");
+    set("lobby-sound-sfx", snd.sfx, "Hiệu ứng");
+  }
+
+  _initSoundControls() {
+    [["lobby-sound-music", "music"], ["lobby-sound-sfx", "sfx"]].forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if (!el || el._bound) return;
+      el._bound = true;
+      el.addEventListener("click", () => {
+        const cur = this.matchManager.sound || { music: true, sfx: true };
+        this.matchManager.sound = { ...cur, [key]: !cur[key] };
+        this._syncSoundButtons();
+        this._postRoomSetting({ sound: this.matchManager.sound });
+      });
+    });
+  }
+
+  // ---- Guest: join card (see room summary, type a name, then press START) ----
+  async showGuestJoinCard(rawCode) {
+    const code = String(rawCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const card = document.getElementById("guest-join-card");
+    if (!card || !code) { this.joinRoomFromLink && this.joinRoomFromLink(code); return; }
+    const $ = (id) => document.getElementById(id);
+    const btn = $("gjc-start"), err = $("gjc-error"), nameEl = $("gjc-name");
+    const fail = (msg, block = true) => { err.textContent = "⚠ " + msg; err.classList.remove("hidden"); if (block) btn.disabled = true; };
+    err.classList.add("hidden"); btn.disabled = true;
+    $("gjc-code").textContent = code;
+    $("gjc-host").textContent = "...";
+    $("gjc-mode").textContent = "...";
+    $("gjc-count").textContent = "...";
+    let saved = "";
+    try { saved = localStorage.getItem("hachihi_guest_name") || ""; } catch {}
+    nameEl.value = nameEl.value || saved || (this.playerName && this.playerName !== "Hachihi Pro" ? this.playerName : "");
+    card.classList.remove("hidden"); card.style.display = "flex";
+    try {
+      const res = await fetch(`/api/match/state?room=${encodeURIComponent(code)}`, { cache: "no-store" });
+      if (res.status === 404) { fail("Phòng không tồn tại hoặc đã hết hạn. Hãy xin link mới từ chủ phòng."); return; }
+      if (!res.ok) { fail("Không kết nối được máy chủ. Thử lại sau."); return; }
+      const d = await res.json();
+      const slots = d.slots || [];
+      const humans = slots.filter((s) => s.playerType === "human").length;
+      const max = d.matchType === "singles" ? 2 : 4;
+      const free = slots.filter((s) => s.slotId !== "A1" && (s.playerType === "empty" || s.playerType === "bot")).length;
+      $("gjc-host").textContent = d.hostName || "Chủ phòng";
+      $("gjc-mode").textContent = d.matchType === "singles" ? "Đấu đơn 1v1" : "Đấu đôi 2v2";
+      $("gjc-count").textContent = `${humans} / ${max} người`;
+      if (d.started) { fail("Trận đã bắt đầu, không thể vào thêm."); return; }
+      if (free === 0) { fail("Phòng đã đầy."); return; }
+      btn.disabled = false;
+    } catch { fail("Mất kết nối. Kiểm tra mạng rồi mở lại link."); return; }
+
+    const go = async () => {
+      const name = nameEl.value.trim().slice(0, 16);
+      if (!name) { fail("Hãy nhập tên của bạn trước khi bắt đầu.", false); nameEl.focus(); return; }
+      try { localStorage.setItem("hachihi_guest_name", name); } catch {}
+      const pn = document.getElementById("player-name-input");
+      if (pn) pn.value = name;
+      this.setPlayerName(name);
+      card.classList.add("hidden"); card.style.display = "none";
+      this.joinRoomFromLink && this.joinRoomFromLink(code);
+    };
+    btn.onclick = go;
+    nameEl.onkeydown = (e) => { if (e.key === "Enter") go(); };
+    $("gjc-cancel").onclick = () => { card.classList.add("hidden"); card.style.display = "none"; this.showTitleModal && this.showTitleModal(); };
   }
 
   updateSceneryUI(info) {

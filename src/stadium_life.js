@@ -792,7 +792,7 @@ export class StadiumLife {
   update(dt) {
     dt = Math.min(dt, 0.05);
     this.t += dt;
-    this.root.rotation.y = this.e.playerRole === "p2" ? Math.PI : 0;
+    this.root.rotation.y = (this.e.viewTeam ? this.e.viewTeam === "B" : this.e.playerRole === "p2") ? Math.PI : 0;
     this.excite = Math.max(0, this.excite - dt * 0.4);
     if (this.e.phase === "TITLE") { /* vẫn chạy để nền sống động */ }
     this._detectHit();
