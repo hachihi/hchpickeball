@@ -128,3 +128,13 @@ html.is-touch .center-banner-layer.banner-top{top:calc(max(var(--sp-2),env(safe-
 .setting-ctrl .portal-range{width:min(220px,40vw)}
 .portal-btn-sound{min-height:var(--tap);padding:0 var(--sp-4);border-radius:var(--r-md);border:1px solid var(--c-line);background:var(--c-surface-2);color:var(--c-text);font-weight:700;cursor:pointer}
 @media (max-width:600px){.setting-row{flex-wrap:wrap}.setting-ctrl{width:100%}}
+
+/* ---------- Khóa đổi sân / ánh sáng khi đang thi đấu ---------- */
+html.match-active .scenery-card,
+html.match-active .lighting-card,
+html.match-active .scenery-hud-btn{opacity:.45;filter:grayscale(.5);cursor:not-allowed}
+.match-lock-toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 72px);transform:translate(-50%,-8px);
+  z-index:var(--z-toast);max-width:min(92vw,420px);padding:var(--sp-2) var(--sp-4);border-radius:var(--r-pill);
+  background:var(--c-surface);border:1.5px solid var(--c-warn);color:var(--c-text);font-size:var(--fs-14);font-weight:700;
+  text-align:center;pointer-events:none;opacity:0;transition:opacity var(--t-base) var(--ease),transform var(--t-base) var(--ease)}
+.match-lock-toast.show{opacity:1;transform:translate(-50%,0)}
