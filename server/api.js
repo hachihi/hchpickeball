@@ -399,7 +399,7 @@ export function createApi(opts = {}) {
           room.botDifficulty = String(body.botDifficulty);
           for (const sl of room.slots) if (sl.playerType === "bot") sl.botDifficulty = room.botDifficulty;
         }
-        if (body.scenery) room.scenery = String(body.scenery);
+        if (body.scenery && !room.started) room.scenery = String(body.scenery); // khóa sân khi trận đã bắt đầu
         if (body.sound && typeof body.sound === "object") room.sound = { music: body.sound.music !== false, sfx: body.sound.sfx !== false };
         if (body.isPublic !== undefined) room.isPublic = !!body.isPublic;
         if (body.gamesToWin) room.gamesToWin = Math.max(1, Math.min(5, num(body.gamesToWin, room.gamesToWin)));
