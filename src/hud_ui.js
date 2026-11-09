@@ -686,9 +686,10 @@ export class HudUI {
     const lightCards = document.querySelectorAll(".lighting-card");
     lightCards.forEach(card => {
       card.addEventListener("click", () => {
+        if (this._isMatchLocked()) { this._notifyMatchLocked(); return; }
         lightCards.forEach(c => c.classList.remove("selected"));
         card.classList.add("selected");
-        const preset = card.dataset.preset || "day";
+        const preset = card.dataset.lighting || card.dataset.preset || "day"; // HTML dùng data-lighting
         this.callbacks.onSetLighting && this.callbacks.onSetLighting(preset);
       });
     });
@@ -802,6 +803,7 @@ export class HudUI {
       card.addEventListener("click", () => {
         const scId = card.dataset.scenery;
         if (!scId) return;
+        if (this._isMatchLocked()) { this._notifyMatchLocked(); return; }
         this.setSelectedScenery(scId);
         this.callbacks.onSelectScenery && this.callbacks.onSelectScenery(scId);
       });
@@ -811,6 +813,7 @@ export class HudUI {
     btnSceneryCycle &&
       btnSceneryCycle.addEventListener("click", e => {
         e.stopPropagation();
+        if (this._isMatchLocked()) { this._notifyMatchLocked(); return; }
         const order = ["landmark81", "eiffel", "bigben", "newyork", "nhatrang", "hachihi_arena"];
         const idx = order.indexOf(this.selectedScenery || "landmark81");
         const nextId = order[(idx + 1) % order.length];
@@ -1292,6 +1295,8 @@ export class HudUI {
   }
 
   openRoomLobbyModal() {
+    this._presenceShown = false; // phòng mới: cho phép báo "đã kết nối" lại 1 lần
+    this._presenceUntil = 0;
     this.hideTitleModal();
     this.updateLobbyUI();
     if (this.elRoomLobbyModal) {
@@ -2376,24 +2381,59 @@ export class HudUI {
           : t.p2Online
           ? (r = `${o} Joined \u2022 Ready!`)
           : (r = `Waiting for ${o}\u2026`));
-    this.elOpponentPresencePill &&
-      (this.elOpponentPresencePill.classList.remove("hidden"),
-      this.elOpponentPresencePill.classList.toggle("ready", a),
-      this.elOpponentPresencePill.classList.toggle("in-rally", !!t.inRally),
-      a &&
-        !this._lastOtherReady &&
-        (this.elOpponentPresencePill.classList.remove("just-joined"),
-        this.elOpponentPresencePill.offsetWidth,
-        this.elOpponentPresencePill.classList.add("just-joined"),
-        this._justJoinedTimer && clearTimeout(this._justJoinedTimer),
-        (this._justJoinedTimer = setTimeout(() => {
-          this.elOpponentPresencePill && this.elOpponentPresencePill.classList.remove("just-joined");
-        }, 950))));
-    this.elOpponentPresenceText && (this.elOpponentPresenceText.textContent = r);
+    // Chỉ báo "đã kết nối" MỘT LẦN khi đối thủ vừa vào; sau ~4 giây tự ẩn và KHÔNG hiện lại khi đang chơi.
+    // (Trước đây _lastOtherReady không bao giờ được ghi nhớ nên hiệu ứng chớp chạy lại mỗi lần cập nhật trạng thái.)
+    const pill = this.elOpponentPresencePill;
+    if (pill) {
+      const now = Date.now();
+      if (a && !this._presenceShown) {
+        this._presenceShown = true;
+        this._presenceUntil = now + 4000;
+        this.elOpponentPresenceText && (this.elOpponentPresenceText.textContent = r);
+        pill.classList.remove("hidden");
+        pill.classList.add("ready");
+        pill.classList.remove("just-joined");
+        void pill.offsetWidth;
+        pill.classList.add("just-joined");
+        this._justJoinedTimer && clearTimeout(this._justJoinedTimer);
+        this._justJoinedTimer = setTimeout(() => {
+          pill.classList.remove("just-joined");
+          pill.classList.add("hidden");
+        }, 4000);
+      } else if (now >= (this._presenceUntil || 0)) {
+        pill.classList.add("hidden");
+        pill.classList.remove("just-joined");
+      }
+    }
+    this._lastOtherReady = a;
     e && e.classList.toggle("opponent-ready", a);
   }
 
+  // Đang trong trận (đã giao bóng / đang đánh / xem lại / hết trận) thì KHÓA đổi sân & ánh sáng.
+  // Ở màn hình chính / phòng chờ (phase TITLE) vẫn đổi bình thường.
+  _isMatchLocked() {
+    const e = typeof window !== "undefined" && window.__argonTennis;
+    const ph = e && e.phase;
+    return !!ph && ["SERVE_STANCE", "SERVE_TOSS", "RALLY", "POINT_OVER", "REPLAY", "MATCH_OVER"].includes(ph);
+  }
+
+  _notifyMatchLocked() {
+    let t = document.getElementById("match-lock-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "match-lock-toast";
+      t.className = "match-lock-toast";
+      t.setAttribute("role", "status");
+      document.body.appendChild(t);
+    }
+    t.textContent = "🔒 Đang thi đấu – không đổi được sân và ánh sáng";
+    t.classList.add("show");
+    clearTimeout(this._lockToastTimer);
+    this._lockToastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
   setSelectedScenery(scId) {
+    if (this._isMatchLocked()) return; // khóa khi đang chơi
     this.selectedScenery = scId;
     const info = SCENERIES[scId] || SCENERIES.landmark81;
     this.updateSceneryUI(info);
