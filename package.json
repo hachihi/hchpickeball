@@ -13,7 +13,7 @@
     "prebuild": "[ -d node_modules/.bin ] || bun install || npm install",
     "prelint": "[ -d node_modules/.bin ] || bun install || npm install",
     "e2e:connection": "node e2e/connection.e2e.mjs",
-    "test": "node scripts/test_pickleball_rules.mjs && node scripts/test_room_sync.mjs && node scripts/test_multiplayer.mjs && node scripts/test_slot_roles.mjs && node scripts/test_transport.mjs"
+    "test": "node scripts/test_pickleball_rules.mjs && node scripts/test_room_sync.mjs && node scripts/test_multiplayer.mjs && node scripts/test_slot_roles.mjs && node scripts/test_transport.mjs && node scripts/test_hud_presence_lock.mjs && node scripts/test_session_client.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.8.0",

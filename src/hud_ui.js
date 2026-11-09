@@ -434,6 +434,7 @@ export class HudUI {
         this.matchManager.initRoomLobbySlots(this.playerName);
 
         // Hiển thị trực tiếp bảng tạo phòng ngay lập tức không để người dùng chờ
+        if (this._lockedRoomId) this._leaveCurrentRoom();   // old room is closed (guests are told) before a new one is created
         this._lockedRoomId = null;
         this.currentRoomId = "";
         this.matchManager.roomId = "";
@@ -834,17 +835,17 @@ export class HudUI {
     const btnCloseLobbyX = document.getElementById("btn-close-lobby-x");
     const btnTankLeave = document.getElementById("btn-tank-leave-room");
     const handleLeaveLobby = async () => {
+      const rid = this._lockedRoomId;
       this.stopLobbyPolling();
       try {
-        if (this._lockedRoomId) await fetch("/api/match/leave", {
+        if (rid) await fetch("/api/match/leave", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room: this._lockedRoomId, slotId: this.matchManager.localPlayerSlot })
+          body: JSON.stringify({ room: rid, slotId: this.matchManager.isHost ? undefined : this.matchManager.localPlayerSlot })
         });
       } catch {}
-      this._lockedRoomId = null;
-      this.currentRoomId = "";
-      this._lastQrUrl = null;
+      this._lockedRoomId = null;     // already left on the server: skip the second leave in showTitleModal
+      this._leaveCurrentRoom();
       this.closeRoomLobbyModal();
       this.showTitleModal();
     };
@@ -1370,11 +1371,7 @@ export class HudUI {
           if (gen !== this._pollGen || String(data.roomId).toUpperCase() !== rid.toUpperCase()) return;
           this.matchManager.syncFromServer(data);   // always start from the server's latest slots/settings
           if (!this.matchManager.isHost && data.mySlot === null && this._joinedRoomId === rid && !this._matchStartedLocally) {
-            this.stopLobbyPolling();
-            try { window.hachihiSession && window.hachihiSession.clear(rid); } catch {}
-            this.closeRoomLobbyModal();
-            try { this.showTitleModal && this.showTitleModal(); } catch {}
-            alert("Bạn không còn trong phòng " + rid + " (chủ phòng đã mời ra hoặc mất kết nối quá lâu). Hãy vào lại bằng link/mã phòng.");
+            this._exitRoomToMenu(rid, "Bạn không còn trong phòng " + rid + " (chủ phòng đã mời ra hoặc mất kết nối quá lâu). Hãy vào lại bằng link/mã phòng.");
             return;
           }
           if (data.started && !this._matchStartedLocally) {
@@ -1393,18 +1390,47 @@ export class HudUI {
           }
           this.matchManager.syncFromServer(data);
           this.updateLobbyUI();
-        } else if (res.status === 404 && gen === this._pollGen) {
-          // room expired or the server restarted: stop polling instead of failing silently
-          this.stopLobbyPolling();
-          try { window.hachihiSession && window.hachihiSession.clear(rid); } catch {}
-          this.closeRoomLobbyModal();
-          try { this.showTitleModal && this.showTitleModal(); } catch {}
-          alert("Phòng " + rid + " đã hết hạn hoặc không còn tồn tại. Hãy tạo phòng mới hoặc nhập lại mã phòng.");
+        } else if ((res.status === 404 || res.status === 410) && gen === this._pollGen) {
+          // host closed the room, or it expired / the server restarted: leave cleanly instead of staying stuck
+          let j = {}; try { j = await res.json(); } catch {}
+          const why = j.reason === "host_gone" ? "Chủ phòng đã mất kết nối quá lâu nên phòng " + rid + " đã đóng."
+            : res.status === 410 ? "Chủ phòng đã đóng phòng " + rid + "."
+            : "Phòng " + rid + " đã hết hạn hoặc không còn tồn tại.";
+          this._exitRoomToMenu(rid, why + " Hãy tạo phòng mới hoặc vào lại bằng link/mã phòng mới.");
         }
       } catch {}
     };
     poll();
     this._lobbyPollTimer = setInterval(poll, 1200);
+  }
+
+  // Forget the current room (server side too) and reset every per-room flag, so the next room starts clean.
+  _leaveCurrentRoom() {
+    const rid = this._lockedRoomId;
+    this.stopLobbyPolling();
+    if (rid) {
+      try { window.hachihiLeaveRoom && window.hachihiLeaveRoom(rid, !!this.matchManager.isHost); } catch {}
+    }
+    this._lockedRoomId = null;
+    this.currentRoomId = "";
+    this._joinedRoomId = null;
+    this._matchStartedLocally = false;
+    this._lastQrUrl = null;
+    try { this.callbacks.onLeftRoom && this.callbacks.onLeftRoom(); } catch {}
+  }
+
+  _exitRoomToMenu(rid, message) {
+    this.stopLobbyPolling();
+    try { window.hachihiSession && window.hachihiSession.clear(rid); } catch {}
+    this._lockedRoomId = null;
+    this.currentRoomId = "";
+    this._joinedRoomId = null;
+    this._matchStartedLocally = false;
+    this._lastQrUrl = null;
+    try { this.callbacks.onLeftRoom && this.callbacks.onLeftRoom(); } catch {}
+    this.closeRoomLobbyModal();
+    try { this.showTitleModal(); } catch {}
+    if (message) alert(message);
   }
 
   stopLobbyPolling() {
@@ -2021,6 +2047,7 @@ export class HudUI {
   }
 
   showTitleModal() {
+    if (this._lockedRoomId) this._leaveCurrentRoom();   // returning to the menu always leaves the room (host => closes it for everyone)
     document.documentElement.classList.remove("autoplay-mode");
     this.elTitleModal && (this.elTitleModal.classList.remove("hidden"), (this.elTitleModal.style.display = "flex"));
   }

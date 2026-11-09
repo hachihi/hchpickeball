@@ -114,7 +114,25 @@ export function createApi(opts = {}) {
   }
 
   // MP-07: a human who stops polling keeps the seat for graceMs, then a BOT takes over.
+  // A room can be closed by its host (leave/disband/exit) or after the host disappears for too long.
+  // Closed rooms stay around briefly so guests still polling get a clear 410 + reason instead of a confusing 404.
+  const hostGoneMs = num(opts.hostGoneMs ?? process.env.ROOM_HOST_GONE_MS, 120000);
+  const closedKeepMs = num(opts.closedKeepMs ?? process.env.ROOM_CLOSED_KEEP_MS, 120000);
+  function closeRoom(room, reason) {
+    if (room.closed || room.roomId === DEFAULT_ROOM_ID) return;
+    room.closed = { reason, at: Date.now() };
+    room.started = false;
+    push(room, "closed", { reason });
+    for (const res of room.listeners) { try { res.end(); } catch {} }
+    room.listeners.clear();
+  }
+
   function sweep(room, now = Date.now()) {
+    if (room.closed) return;
+    if (room.hostToken && room.roomId !== DEFAULT_ROOM_ID) {
+      const h = room.sessions.get(room.hostToken);
+      if (h && now - h.lastSeen > hostGoneMs) { closeRoom(room, "host_gone"); return; }
+    }
     for (const [token, s] of room.sessions) {
       if (!s.slotId || s.isHost) continue;
       if (now - s.lastSeen <= graceMs) continue;
@@ -129,6 +147,7 @@ export function createApi(opts = {}) {
     const now = Date.now();
     for (const [id, room] of rooms) {
       sweep(room, now);
+      if (id !== DEFAULT_ROOM_ID && room.closed && now - room.closed.at > closedKeepMs) { rooms.delete(id); continue; }
       if (id !== DEFAULT_ROOM_ID && now - room.lastActivity > roomTtlMs) rooms.delete(id);
     }
   }, 5000);
@@ -207,6 +226,7 @@ export function createApi(opts = {}) {
   function subscribe(roomId, res) {
     const room = findRoom(roomId);
     if (!room) return false;
+    if (room.closed) { res.writeHead(410, { "Content-Type": "application/json" }); res.end('{"ok":false,"error":"ROOM_CLOSED"}'); return true; }
     if (room.listeners.size >= MAX_LISTENERS_PER_ROOM) { res.writeHead(429, { "Content-Type": "application/json" }); res.end('{"ok":false,"error":"TOO_MANY_STREAMS"}'); return true; }
     res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no", "Access-Control-Allow-Origin": "*" });
     res.write("retry: 1000\n\n: connected\n\n");
@@ -265,6 +285,7 @@ export function createApi(opts = {}) {
       const now = Date.now();
       room.lastActivity = now;
       sweep(room, now);
+      if (room.closed) return err(410, "ROOM_CLOSED", { roomId: room.roomId, reason: room.closed.reason });
       const sess = token ? room.sessions.get(token) : null;
       if (sess) { sess.lastSeen = now; }
       const mySlot = slotOf(room, token);
@@ -340,7 +361,15 @@ export function createApi(opts = {}) {
         return ok({ roomId: room.roomId, assignedSlot: slot.slotId, sessionToken: t, slots: room.slots });
       }
 
+      if (pathname === "/api/match/close") {
+        const h = needHost(); if (h) return h;
+        closeRoom(room, "host_closed");
+        return ok({ roomId: room.roomId, closed: true });
+      }
+
       if (pathname === "/api/match/leave") {
+        // the host leaving = the room is over for everybody
+        if (isHost && !(body.slotId && body.slotId !== hostSlotId(room))) { closeRoom(room, "host_closed"); return ok({ roomId: room.roomId, closed: true }); }
         // own seat via session; host may also remove another seat by slotId
         let target = mySlot && !isHost ? mySlot : null;
         if (!target && isHost && body.slotId && body.slotId !== hostSlotId(room)) target = room.slots.find((s) => s.slotId === body.slotId) || null;

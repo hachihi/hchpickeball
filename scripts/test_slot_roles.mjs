@@ -108,6 +108,17 @@ ok(!mc.includes('role:"p2",type:"swing"'), "no hard-coded p2 swing post left");
   ok(eng.includes("this._onlineLobby||this._applyDifficultyTuning"), "guest swings no longer reset host difficulty/length");
 }
 
+// leaving a room / host window hidden
+{
+  const hud = read("src/hud_ui.js"), sc = read("src/session_client.js");
+  ok(hud.includes("if (this._lockedRoomId) this._leaveCurrentRoom();   // returning to the menu always leaves the room"), "returning to the menu leaves the room (host => closes it)");
+  ok(hud.includes("this._leaveCurrentRoom();   // old room is closed (guests are told) before a new one is created"), "creating a new room closes the previous one first");
+  ok(hud.includes("res.status === 404 || res.status === 410"), "lobby polling treats closed rooms (410) like gone rooms");
+  ok(eng.includes("onLeftRoom:()=>{this._onlineLobby=!1"), "engine resets online flags when leaving a room");
+  ok(eng.includes("_startBackgroundTick()") && eng.includes('this.playerRole!=="p1"||this.isPaused'), "host keeps simulating while its window is hidden/occluded");
+  ok(sc.includes("window.hachihiDiag"), "console diagnostic hachihiDiag is available");
+}
+
 // index.html loads session wrapper before the engine
 const idx = read("index.html");
 ok(idx.indexOf("session_client.js") > 0 && idx.indexOf("session_client.js") < idx.indexOf("game_engine.js"), "session_client loads before engine");

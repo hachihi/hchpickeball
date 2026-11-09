@@ -1,6 +1,6 @@
 # HANDOFF — Multiplayer 2/3/4 người (Pickleball Hachihi)
 
-**Mới nhất: xem `ONLINE_RENDER_REVIEW.md` (rà soát online trên Render, đề xuất, tiến trình, các lỗi đã sửa).**
+**Mới nhất: mục 3b của `ONLINE_RENDER_REVIEW.md` (host thoát/phòng mới/2 trình duyệt). Rà soát chung: `ONLINE_RENDER_REVIEW.md` (rà soát online trên Render, đề xuất, tiến trình, các lỗi đã sửa).**
 
 Cập nhật lần cuối: sau Bước 4 (rà soát toàn bộ chơi chung online). Đọc file này trước khi làm tiếp.
 
@@ -59,6 +59,12 @@ Link/QR: `/?room=ID&role=p2&join=lobby` → engine gọi `hud.showGuestJoinCard`
 ### Cài đặt phòng do host chọn (server giữ)
 `scenery`, `sound {music,sfx}`, `botDifficulty`, `teamA/BName`, `teamA/BColor`, `matchType`, `gamesToWin`, `isPublic` qua `POST /api/match/team/update` (chỉ host). Khách nhận qua `state` và áp dụng lúc vào trận (sân + âm lượng nhạc/hiệu ứng; khách vẫn tự tắt âm trên máy mình).
 
+### Đóng phòng (mới)
+`POST /api/match/close` (chỉ host) hoặc host `leave` ⇒ phòng đóng, mọi request trả `410 ROOM_CLOSED {reason}`. Host im quá `ROOM_HOST_GONE_MS` (120000) ⇒ `host_gone`. Phòng đóng bị xóa sau `ROOM_CLOSED_KEEP_MS` (120000). Client: `window.hachihiLeaveRoom(room, hostClose)`, `HUD._leaveCurrentRoom()`, `showTitleModal()` luôn rời phòng; `session_client.js` tự đưa khách về menu khi nhận 410/404.
+
+### Chẩn đoán trên trình duyệt
+`await hachihiDiag()` trong console: `mySlot`, `hostOnline`, `phase`, `tabHidden`, `lastSwingAgoMs` theo từng vai. Test 2 cửa sổ trên 1 máy: đặt cạnh nhau, không chồng lên.
+
 ### Biến môi trường
 `ROOM_GRACE_MS` (mặc định 45000): guest im lặng quá mức này thì BOT thế chỗ. `ROOM_TTL_MS` (mặc định 4 giờ): dọn phòng bỏ trống. Phòng mặc định `10150` không bao giờ bị dọn.
 
@@ -90,3 +96,9 @@ Mỗi tab một session (hoặc mỗi thiết bị). Làm cho 2, 3 và 4 ngườ
 
 ## Ghi chú sửa `game_engine.js`
 File này là bản minified một dòng. Sửa bằng cách thay chuỗi chính xác (xem `scripts/patch_step2.py` để biết các chỗ đã vá) và luôn chạy `node --check src/game_engine.js` + `npm test` sau khi sửa.
+
+## Bước 6b — khóa đổi sân khi đang chơi + bỏ chip "Connected" nhấp nháy
+- **Chip "X Connected • Ready to Serve!"** (`#opponent-presence-pill`): trước đây `_lastOtherReady` không bao giờ được ghi nhớ nên hiệu ứng `just-joined` chạy lại ở MỖI lần cập nhật trạng thái (~50ms) → nhấp nháy, không tự ẩn, và còn hiện "Waiting for…" khi đang chơi. Nay chỉ hiện MỘT lần ~4 giây khi đối thủ vừa vào (`hud_ui.js: updateOpponentPresence`), rồi ẩn hẳn; phòng mới mới báo lại.
+- **Khóa đổi sân & ánh sáng khi đang thi đấu** (phase SERVE_STANCE/SERVE_TOSS/RALLY/POINT_OVER/REPLAY/MATCH_OVER): chặn ở 3 lớp — `hud_ui.js` (`_isMatchLocked`, thẻ sân, nút đổi sân trên HUD, thẻ ánh sáng + toast "🔒 Đang thi đấu…"), `game_engine.js` (`onSelectScenery`/`onSetLighting`), `server/api.js` (`team/update` bỏ qua `scenery` khi `room.started`). `src/match_lock.js` chỉ lo phần làm mờ nút. Ở TITLE / phòng chờ vẫn đổi bình thường; lúc bắt đầu trận engine vẫn tự áp sân của host (gọi `applyScenery` trực tiếp, không qua khóa).
+- Sửa kèm: thẻ ánh sáng đọc `data-preset` trong khi HTML dùng `data-lighting` → chọn đêm/hoàng hôn luôn ra "ban ngày"; nay đọc đúng.
+- Test mới: `scripts/test_hud_presence_lock.mjs` (HudUI thật + DOM giả), thêm ca "đổi sân sau khi bắt đầu bị bỏ qua" vào `scripts/test_multiplayer.mjs`. `npm test` = 6 bộ, tất cả xanh.

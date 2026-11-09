@@ -39,7 +39,32 @@
   }
   const hideBanner = () => { if (health.el) health.el.style.display = "none"; };
   const DEFAULT_ROOM = "10150";
-  const watched = (room) => !!room && norm(room) !== DEFAULT_ROOM && !!read(room);
+  let current = null;            // the room this tab is playing in right now; stale polls of an old room must not raise banners
+  let exitTimer = null;
+  const watched = (room) => !!room && norm(room) !== DEFAULT_ROOM && !!read(room) && (!current || norm(room) === current);
+  // Leaving for the menu is a full page load: it throws away every stale in-memory flag of the old room.
+  function goMenu(room) { try { window.hachihiSession.clear(room); } catch {} location.href = location.origin + "/"; }
+  function leaveSoon(room, ms) { if (exitTimer) return; exitTimer = setTimeout(() => goMenu(room), ms); }
+  // Console helper for "my guest can't control": run  await hachihiDiag()  in BOTH browsers' consoles and compare.
+  window.hachihiDiag = async () => {
+    let r = current;
+    if (!r) { try { for (let i = 0; i < sessionStorage.length; i++) { const k = sessionStorage.key(i); if (k && k.startsWith("hachihi.session.")) r = k.slice(16); } } catch {} }
+    if (!r) return { error: "this tab has no room session" };
+    const res = await orig("/api/match/state?room=" + encodeURIComponent(r), { headers: { "X-Session": read(r) || "" }, cache: "no-store" });
+    const st = await res.json().catch(() => ({}));
+    const eng = window.__argonTennis || {};
+    return {
+      room: r, httpStatus: res.status, error: st.error, reason: st.reason, mySlot: st.mySlot, started: st.started, hostOnline: st.hostOnline,
+      phase: eng.phase, tabHidden: typeof document !== "undefined" ? document.hidden : null, visibility: typeof document !== "undefined" ? document.visibilityState : null,
+      lastSwingAgoMs: Object.fromEntries(Object.entries(st.rackets || {}).map(([k, v]) => [k, v.lastSwing ? Math.round((st.serverTimeMs || Date.now()) - v.lastSwing.serverTimeMs) : null]))
+    };
+  };
+  window.hachihiLeaveRoom = (room, hostClose) => {      // best effort, used when the player returns to the menu
+    const r = room || current; if (!r) return Promise.resolve();
+    const t = read(r); if (!t) return Promise.resolve();
+    return orig("/api/match/" + (hostClose ? "close" : "leave"), { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Session": t }, body: JSON.stringify({ room: r }) })
+      .catch(() => {}).then(() => { try { window.hachihiSession.clear(r); } catch {} if (norm(r) === current) current = null; });
+  };
   function noteOk(room) {
     health.lastOk = Date.now();
     if (health.failing && !health.closed) { health.failing = false; hideBanner(); }
@@ -47,10 +72,20 @@
   }
   function noteFail(room, why) {
     if (health.closed) return;
+    if (why === "ROOM_CLOSED") {
+      health.closed = true; health.failing = true;
+      const reason = arguments[2];
+      const msg = reason === "host_gone" ? "Chủ phòng đã mất kết nối quá lâu — phòng đã đóng. Đang về menu…" : "Chủ phòng đã đóng phòng. Đang về menu…";
+      banner("error", msg, { label: "Về menu ngay", run: () => goMenu(room) });
+      try { window.dispatchEvent(new CustomEvent("hachihi:net", { detail: { state: "room-closed", room, reason } })); } catch {}
+      leaveSoon(room, 2500);
+      return;
+    }
     if (why === "ROOM_NOT_FOUND") {
       health.closed = true; health.failing = true;
-      banner("error", "Phòng không còn tồn tại (máy chủ vừa khởi động lại hoặc phòng đã hết hạn).", { label: "Về menu", run: () => { try { window.hachihiSession.clear(room); } catch {} location.href = location.origin + "/"; } });
+      banner("error", "Phòng không còn tồn tại (máy chủ vừa khởi động lại hoặc phòng đã hết hạn). Đang về menu…", { label: "Về menu ngay", run: () => goMenu(room) });
       try { window.dispatchEvent(new CustomEvent("hachihi:net", { detail: { state: "room-gone", room } })); } catch {}
+      leaveSoon(room, 4000);
       return;
     }
     if (Date.now() - health.lastOk > 3000) {
@@ -59,6 +94,7 @@
       try { window.dispatchEvent(new CustomEvent("hachihi:net", { detail: { state: "down", room } })); } catch {}
     }
   }
+  try { const q = new URLSearchParams(location.search).get("room"); if (q && read(q)) current = norm(q); } catch {}
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const inflight = new Map();   // same state URL requested while the previous answer is still pending -> share it
 
@@ -105,7 +141,7 @@
       }
       if (attempt && !health.closed) hideBanner();
       if (track) {
-        if (res.status === 404) { let code = ""; try { code = (await res.clone().json()).error; } catch {} if (code === "ROOM_NOT_FOUND") noteFail(room, "ROOM_NOT_FOUND"); }
+        if (res.status === 404 || res.status === 410) { let j = {}; try { j = await res.clone().json(); } catch {} if (j.error === "ROOM_CLOSED") noteFail(room, "ROOM_CLOSED", j.reason); else if (j.error === "ROOM_NOT_FOUND") noteFail(room, "ROOM_NOT_FOUND"); }
         else if (res.status >= 500) noteFail(room, "SERVER");
         else if (res.ok) {
           noteOk(room);
@@ -121,7 +157,13 @@
       if (res.ok && /\/api\/match\/(create|slot\/join)$/.test(u.pathname)) {
         try {
           const data = await res.clone().json();
-          if (data && data.sessionToken && (data.roomId || room)) write(data.roomId || room, data.sessionToken);
+          if (data && data.sessionToken && (data.roomId || room)) {
+            write(data.roomId || room, data.sessionToken);
+            // entering a (new) room: forget every problem of the previous one
+            current = norm(data.roomId || room); health.closed = false; health.failing = false; health.lastOk = Date.now();
+            if (exitTimer) { clearTimeout(exitTimer); exitTimer = null; }
+            hideBanner();
+          }
         } catch {}
       }
       return res;

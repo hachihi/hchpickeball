@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 4100 + Math.floor(Math.random() * 400);
 const base = `http://127.0.0.1:${PORT}`;
 const GRACE = 1200;
-const srv = spawn(process.execPath, ["server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT), ROOM_GRACE_MS: String(GRACE), CREATE_PER_MIN: "500", ROOM_ONLINE_MS: "1000" }, stdio: "ignore" });
+const srv = spawn(process.execPath, ["server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT), ROOM_GRACE_MS: String(GRACE), ROOM_HOST_GONE_MS: "4000", CREATE_PER_MIN: "500", ROOM_ONLINE_MS: "1000" }, stdio: "ignore" });
 let passed = 0, failed = 0;
 const ok = (c, n) => { if (c) passed++; else { failed++; console.error("  ✗ FAIL:", n); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -131,6 +131,16 @@ try {
   ok(sw.slots.length === 2, "host can switch to singles");
 
 
+  // ---- khóa đổi sân khi trận đã bắt đầu ----
+  const lk = (await post("/api/match/create", { p1Name: "K", matchType: "singles" })).j;
+  await post("/api/match/team/update", { room: lk.roomId, scenery: "bigben" }, lk.sessionToken);
+  ok((await get(`/api/match/state?room=${lk.roomId}`, lk.sessionToken)).j.scenery === "bigben", "scenery can change in the lobby before start");
+  await post("/api/match/slot/join", { room: lk.roomId, playerName: "O" });
+  ok((await post("/api/match/start", { room: lk.roomId }, lk.sessionToken)).j.started === true, "lock-test room starts");
+  const lk2 = (await post("/api/match/team/update", { room: lk.roomId, scenery: "eiffel", botDifficulty: "hard" }, lk.sessionToken)).j;
+  ok(lk2.scenery === "bigben", "scenery change is IGNORED after the match started");
+  ok((await get(`/api/match/state?room=${lk.roomId}`, lk.sessionToken)).j.scenery === "bigben", "state still reports the locked scenery");
+
   // ---- room settings (sound/scenery), share link, SSE ----
   const rset = (await post("/api/match/create", { p1Name: "Settings" })).j;
   ok(rset.joinUrl.includes("join=lobby"), "create returns a join link that goes through the join card");
@@ -151,6 +161,36 @@ try {
   while (Date.now() < dl && !seen.includes("abc123")) { const { value } = await reader.read(); seen += new TextDecoder().decode(value || new Uint8Array()); }
   ok(seen.includes("event: swing") && seen.includes('"role":"p3"') && seen.includes("abc123"), "swing is pushed over SSE with its client id");
   ctl.abort();
+
+
+  // ---- host leaves / closes the room: everybody else is told (410), a new room works normally ----
+  const hc = (await post("/api/match/create", { p1Name: "HC" })).j;
+  const hg1 = (await post("/api/match/slot/join", { room: hc.roomId, playerName: "G1" })).j;
+  const hg2 = (await post("/api/match/slot/join", { room: hc.roomId, playerName: "G2" })).j;
+  ok((await post("/api/match/close", { room: hc.roomId }, hg1.sessionToken)).status === 403, "guest cannot close the room");
+  await post("/api/match/leave", { room: hc.roomId }, hg1.sessionToken);
+  ok((await get(`/api/match/state?room=${hc.roomId}`, hg2.sessionToken)).status === 200, "a guest leaving does not close the room");
+  const lv2 = await post("/api/match/leave", { room: hc.roomId, slotId: "A1" }, hc.sessionToken);   // what the lobby 'leave' button sends for the host
+  ok(lv2.status === 200 && lv2.j.closed === true, "host leave closes the room");
+  const gst = await get(`/api/match/state?room=${hc.roomId}`, hg2.sessionToken);
+  ok(gst.status === 410 && gst.j.error === "ROOM_CLOSED" && gst.j.reason === "host_closed", "guest polling a closed room gets 410 ROOM_CLOSED (reason host_closed)");
+  ok((await post("/api/racket/swing", { room: hc.roomId, speed: 1 }, hg2.sessionToken)).status === 410, "swings to a closed room are refused with 410");
+  ok((await post("/api/match/slot/join", { room: hc.roomId, playerName: "Late" })).status === 410, "joining a closed room -> 410");
+  ok((await fetch(`${base}/api/match/events?room=${hc.roomId}`)).status === 410, "event stream of a closed room -> 410");
+  const nr = (await post("/api/match/create", { p1Name: "HC" })).j;
+  ok(nr.roomId !== hc.roomId, "host can create another room right away");
+  const ng = (await post("/api/match/slot/join", { room: nr.roomId, playerName: "G2" }, hg2.sessionToken)).j;
+  ok(ng.assignedSlot && ng.sessionToken, "a guest of the old room can join the new room (old session token is irrelevant)");
+  const ex = (await post("/api/match/create", { p1Name: "EX" })).j;
+  await post("/api/match/close", { room: ex.roomId }, ex.sessionToken);
+  ok((await get(`/api/match/state?room=${ex.roomId}`)).status === 410, "explicit close -> 410");
+
+  // ---- host disappears (tab killed): room closes by itself, guests are told why ----
+  const hd = (await post("/api/match/create", { p1Name: "Gone" })).j;
+  const hdg = (await post("/api/match/slot/join", { room: hd.roomId, playerName: "Stay" })).j;
+  for (let i = 0; i < 5; i++) { await sleep(1000); await get(`/api/match/state?room=${hd.roomId}`, hdg.sessionToken); }   // guest keeps polling, host silent
+  const hds = await get(`/api/match/state?room=${hd.roomId}`, hdg.sessionToken);
+  ok(hds.status === 410 && hds.j.reason === "host_gone", "silent host: room closes with reason host_gone");
 
   // ---- racket roles: a swing is always filed under the SENDER's seat ----
   const rr = (await post("/api/match/create", { p1Name: "HR" })).j;

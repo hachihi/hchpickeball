@@ -58,6 +58,19 @@ Mức độ: **Cao** = hỏng trận hoặc gian lận được; **TB** = trải
 - `server/api.js` `/api/racket/move`, `src/motion_controls.js` (`_restartMoveRelay`, `_handleRemoteMove`), `src/game_engine.js` (`_applyManualMovement` dùng cho cả khách) — R-20.
 - Test mới/đổi: `scripts/test_multiplayer.mjs` (51 → 64: swing cần session, vai bị ép theo ghế, `hostOnline`, giới hạn tạo phòng, trần phòng), `scripts/test_transport.mjs` (nay vào phòng bằng session thật như trình duyệt), `e2e/connection.e2e.mjs` (mới).
 
+## 3b. Đợt sửa tiếp (báo cáo của người dùng sau bản step6-lock)
+
+| ID | Mức | Phát hiện | Trạng thái |
+|---|---|---|---|
+| R-23 | **Cao** | **Host thoát phòng mà khách không tự thoát.** Server không có khái niệm "đóng phòng": nút rời của host gọi `leave` nhưng server bỏ qua ghế host; thoát từ menu tạm dừng/hủy phòng/về menu thì không gọi server. Phòng sống tới 4 giờ, khách chỉ thấy "chủ phòng mất kết nối". Test mới chạy trên **code step6 gốc: fail** (khách không nhận gì) | **Đã sửa**: `POST /api/match/close` (chỉ host); host `leave` cũng đóng phòng; mọi request vào phòng đã đóng trả `410 ROOM_CLOSED` + `reason` (`host_closed`/`host_gone`); host im quá `ROOM_HOST_GONE_MS` (mặc định 120 s) thì phòng tự đóng; phòng đóng được giữ `ROOM_CLOSED_KEEP_MS` (120 s) để khách còn nhận thông báo rồi xóa. Khách thấy banner và **tự về menu sau 2,5 s** (tải lại trang = sạch mọi trạng thái cũ) |
+| R-24 | **Cao** | **Host tạo phòng mới thì khách không chơi được "vì phòng cũ đã thoát".** `health.closed` trong `session_client.js` bật một lần là khóa vĩnh viễn: banner "Phòng không còn tồn tại" không bao giờ tắt, và poll của phòng cũ vẫn chạy song song với phòng mới. Thêm các cờ cũ (`_matchStartedLocally`, `_lockedRoomId`, `_onlineLobby`, vai/ghế) không được reset khi rời phòng | **Đã sửa**: tab chỉ theo dõi *phòng hiện tại*; vào/tạo phòng mới xóa banner, hủy hẹn giờ thoát, reset trạng thái; `showTitleModal()` luôn rời phòng đang có (host ⇒ đóng) và gọi `onLeftRoom` để engine reset cờ online; tạo phòng mới tự đóng phòng cũ trước |
+| R-25 | **Cao (giả thuyết, chưa tái hiện được)** | **2 trình duyệt trên 1 máy: host điều khiển được, khách không.** Host chạy toàn bộ mô phỏng bằng `requestAnimationFrame`. Cửa sổ bị che/thu nhỏ/ở nền thì trình duyệt dừng rAF → mô phỏng host đứng, cú đánh và di chuyển của khách tới host nhưng không ai xử lý. Khi bạn bấm vào cửa sổ khách thì cửa sổ host thường bị che. Đây là R-16 | **Đã giảm**: khi rAF dừng >150 ms, host online tiếp tục `update()` bằng Web Worker timer (không bị throttle như timer thường; không vẽ). Cách thử đúng trên 1 máy: đặt 2 cửa sổ **cạnh nhau, không chồng lên nhau**. Dùng `await hachihiDiag()` ở console cả hai cửa sổ để xem `mySlot`, `tabHidden`, `lastSwingAgoMs` |
+| R-26 | Thấp | `scripts/test_transport.mjs` đôi khi báo `fetch failed` khi chạy trong `npm test` (gặp 2 lần, không tái hiện được khi chạy lại 5 lần) | Chưa rõ nguyên nhân (nghi cổng ngẫu nhiên trùng). Nếu gặp: chạy lại |
+
+Không đo được: lỗi R-25 trên 2 trình duyệt thật — môi trường kiểm thử không có three.js nên không chạy được engine. Nếu sau bản này khách vẫn không điều khiển được khi 2 cửa sổ cạnh nhau, hãy gửi kết quả `await hachihiDiag()` của cả hai cửa sổ.
+
+Test mới: `scripts/test_session_client.mjs` (15, chạy `session_client.js` thật với server thật), 11 test đóng phòng/host biến mất trong `scripts/test_multiplayer.mjs` (73 → 84), 6 test nối dây trong `scripts/test_slot_roles.mjs`.
+
 ## 4. Việc nên làm trước khi mở cho nhiều người chơi
 
 1. Đưa `render.yaml` mới lên và deploy; kiểm `GET /healthz` trả `{"ok":true}`.

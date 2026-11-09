@@ -8,7 +8,7 @@ import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 4800 + Math.floor(Math.random() * 300);
 const ORIGIN = `http://127.0.0.1:${PORT}`;
-const srv = spawn(process.execPath, ["server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
+let srv = spawn(process.execPath, ["server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
 let passed = 0, failed = 0;
 const ok = (c, n) => { if (c) passed++; else { failed++; console.error("  ✗ FAIL:", n); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
