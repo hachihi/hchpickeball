@@ -49,7 +49,8 @@ async function main() {
   console.log('[download-assets] All static assets ready.');
 }
 
+// Non-fatal: the game loads these files from the CDN itself, so a CDN hiccup during the Render build
+// must not fail the whole deploy. (Previously one failed download aborted `npm run build`.)
 main().catch((err) => {
-  console.error('[download-assets] Error:', err);
-  process.exit(1);
+  console.warn('[download-assets] Skipped (non-fatal):', err && err.message ? err.message : err);
 });
