@@ -103,6 +103,17 @@ async function scenario(label, withSSE, slow = 0) {
   await sleep(500);
   ok(host.got.swings.filter((e) => e.role === "p3").length === 3, `${label}: back-to-back swings both reach the host`);
 
+  // movement: a guest holding a key / joystick moves THEIR character on the host (it never did before)
+  g3.mc.moveInput.x = 1; g3.mc.moveInput.z = -1;
+  await sleep(500);
+  const rm = host.mc.remoteMoves && host.mc.remoteMoves.p3;
+  ok(rm && rm.x === 1 && rm.z === -1, `${label}: host receives p3 movement (${JSON.stringify(rm && { x: rm.x, z: rm.z })})`);
+  g4.mc.moveInput.x = -1; await sleep(400);
+  ok(host.mc.remoteMoves.p4 && host.mc.remoteMoves.p4.x === -1, `${label}: p4 movement tracked separately`);
+  g3.mc.moveInput.x = 0; g3.mc.moveInput.z = 0; g4.mc.moveInput.x = 0;
+  await sleep(400);
+  ok(host.mc.remoteMoves.p3.x === 0 && host.mc.remoteMoves.p3.z === 0, `${label}: releasing the key stops the movement`);
+
   // toss (serve) from p2 reaches the host as a toss
   g2.mc._emitToss({ source: "mouse", shotType: "lob", speed: 1.1 });
   await sleep(500);

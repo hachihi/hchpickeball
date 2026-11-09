@@ -174,6 +174,26 @@ try {
   await post("/api/match/sync", { room: rr.roomId, snapshot: { phase: "RALLY" } }, rr.sessionToken);
   ok((await get(`/api/match/state?room=${rr.roomId}`, rb.sessionToken)).j.hostOnline === true, "hostOnline recovers when the host syncs again");
 
+  // ---- guest movement relay (keys / joystick -> host) ----
+  const mrm = (await post("/api/match/create", { p1Name: "HM" })).j;
+  const ma = (await post("/api/match/slot/join", { room: mrm.roomId, playerName: "A" })).j;   // A2 -> p3
+  const mb = (await post("/api/match/slot/join", { room: mrm.roomId, playerName: "B" })).j;   // B1 -> p2
+  const mc = (await post("/api/match/slot/join", { room: mrm.roomId, playerName: "C" })).j;   // B2 -> p4
+  ok((await post("/api/racket/move", { room: mrm.roomId, role: "p3", x: 1, z: -1 })).status === 401, "move without a session is rejected");
+  const mv = await post("/api/racket/move", { room: mrm.roomId, role: "p1", x: 5, z: -9 }, ma.sessionToken);   // A2 pretends to be p1 and sends out-of-range values
+  ok(mv.status === 200, "member can send movement");
+  const mst = (await get(`/api/match/state?room=${mrm.roomId}`)).j;
+  ok(mst.rackets.p3.move && mst.rackets.p3.move.x === 1 && mst.rackets.p3.move.z === -1, "movement is stored under the sender's own seat (p3) and clamped to [-1,1]");
+  ok(!mst.rackets.p1.move, "a guest cannot move the host's character");
+  const mctl = new AbortController();
+  const msse = await fetch(`${base}/api/match/events?room=${mrm.roomId}`, { signal: mctl.signal });
+  const mreader = msse.body.getReader();
+  await post("/api/racket/move", { room: mrm.roomId, x: 0, z: 1 }, mc.sessionToken);
+  let mseen = ""; const mdl = Date.now() + 2000;
+  while (Date.now() < mdl && !mseen.includes("event: move")) { const { value } = await mreader.read(); mseen += new TextDecoder().decode(value || new Uint8Array()); }
+  ok(mseen.includes("event: move") && mseen.includes('"role":"p4"') && mseen.includes('"z":1'), "movement is pushed to the host over SSE");
+  mctl.abort();
+
   // ---- Render protection: room cap + per-IP create limit (unit level, own API instance) ----
   const { createApi } = await import("../server/api.js");
   const mk = (o) => createApi(o);
