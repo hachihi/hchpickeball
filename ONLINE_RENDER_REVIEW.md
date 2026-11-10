@@ -113,3 +113,15 @@ node server.js &                          # rồi:
 BASE_URL=http://localhost:3000 PLAYERS=2 node e2e/multiplayer.e2e.mjs
 ```
 Lưu ý `e2e/multiplayer.e2e.mjs` trong repo vẫn dùng nút lobby cũ (`#btn-multiplayer-modal` bị ẩn); cần bấm `#btn-choice-multi` trước và cuộn nút "Tham gia" vào giữa màn hình. Bản trong repo đã được sửa theo đó (chạy được với PLAYERS=2).
+
+## 8. Quy tắc phòng online: host quyết định số người và BOT (2026-11-10)
+
+Nguyên nhân kết quả "2 người + 2 BOT": lobby không cho chọn 1–1/2–2 và ngầm tạo phòng 2–2; khách vào được xếp ghế A2 (cùng đội host), nên muốn bắt đầu host phải bấm "+ Thêm Máy" hai lần ở đội B.
+
+Đã làm theo đặc tả (Offline giữ nguyên tự điền BOT):
+- Chọn **1–1 / 2–2 ngay khi tạo phòng** (`index.html`, `src/hud_ui.js`). Phòng 1–1 chỉ có A1, B1; phòng 2–2 có A1, A2, B1, B2. Tạo phòng không có BOT.
+- `server/api.js`: chỉ host thêm/xóa/đổi BOT (kèm cấp dễ/bình thường/chuyên nghiệp); khách chỉ vào **ghế trống** (không chiếm ghế BOT hay ghế người khác, cả khi vào lẫn khi đổi chỗ); bắt đầu chỉ khi **mọi ghế** (2 hoặc 4) có người/BOT và có ít nhất 1 người; sau khi bắt đầu không đổi BOT/ghế; rời phòng trước khi bắt đầu → ghế **trống** (không BOT).
+- Một ngoại lệ duy nhất: người **rớt mạng/rời giữa trận đang chạy** vẫn được BOT thế chỗ, vì trận không thể chờ.
+- Đổi 2–2 → 1–1 trước khi bắt đầu: khách ở A2 được chuyển sang B1 (không bị đá, không thành BOT).
+- `src/match_manager.js`: `initRoomLobbySlots(tên, chế độ)`, `canStart()` chặt, `addBotToTeam` chỉ vào ghế trống; `src/slot_roles.js`: `seatsFor`, `canControlSeat` theo chế độ; `src/game_engine.js`: input theo chế độ, và bắt đầu trận **offline** sau khi từng ở phòng online sẽ đặt lại vai/phòng (không mang trạng thái cũ).
+- Test mới `scripts/test_room_modes.mjs` (64 kiểm tra) bao phủ từng điều kiện nghiệm thu; `npm test` 8 bộ đều xanh, `tsc` và `vite build` qua.
