@@ -47,70 +47,31 @@ export class MatchManager {
   }
 
   // Khởi tạo danh sách slot chuẩn cho Lobby phòng mới: chỉ Host ở A1, A2, B1, B2 để trống
-  initRoomLobbySlots(hostName = this.hostName) {
+  // Online room: ONLY the host (A1) is seated. Singles = 2 seats (A1, B1); doubles = 4 seats. Nothing is auto-filled with BOTs:
+  // the host adds BOTs himself. (Offline/solo keeps using autoFillBots.)
+  initRoomLobbySlots(hostName = this.hostName, matchType = "doubles") {
     this.hostName = hostName || "Hachihi Pro";
-    this.slots = [
-      {
-        slotId: "A1",
-        teamCode: "A",
-        slotNumber: 1,
-        playerType: "human",
-        playerId: "p1",
-        playerName: this.hostName,
-        botId: null,
-        botDifficulty: null,
-        status: "ready",
-        avatar: "player1"
-      },
-      {
-        slotId: "A2",
-        teamCode: "A",
-        slotNumber: 2,
-        playerType: "empty",
-        playerId: null,
-        botId: null,
-        playerName: "Đang chờ người chơi...",
-        botDifficulty: null,
-        status: "waiting",
-        avatar: "player2"
-      },
-      {
-        slotId: "B1",
-        teamCode: "B",
-        slotNumber: 1,
-        playerType: "empty",
-        playerId: null,
-        botId: null,
-        playerName: "Đang chờ người chơi...",
-        botDifficulty: null,
-        status: "waiting",
-        avatar: "opponent1"
-      },
-      {
-        slotId: "B2",
-        teamCode: "B",
-        slotNumber: 2,
-        playerType: "empty",
-        playerId: null,
-        botId: null,
-        playerName: "Đang chờ người chơi...",
-        botDifficulty: null,
-        status: "waiting",
-        avatar: "opponent2"
-      }
-    ];
+    this.matchType = matchType === "singles" ? "singles" : "doubles";
+    const empty = (slotId, teamCode, slotNumber, avatar) => ({
+      slotId, teamCode, slotNumber, playerType: "empty", playerId: null, botId: null,
+      playerName: "Đang chờ người chơi...", botDifficulty: null, status: "waiting", avatar
+    });
+    const slots = [{
+      slotId: "A1", teamCode: "A", slotNumber: 1, playerType: "human", playerId: "p1", playerName: this.hostName,
+      botId: null, botDifficulty: null, status: "ready", avatar: "player1"
+    }];
+    if (this.matchType === "doubles") slots.push(empty("A2", "A", 2, "player2"));
+    slots.push(empty("B1", "B", 1, "opponent1"));
+    if (this.matchType === "doubles") slots.push(empty("B2", "B", 2, "opponent2"));
+    this.slots = slots;
+    this.started = false;
     return this.slots;
   }
 
   // Thêm Bot thủ công vào đội A hoặc đội B
   addBotToTeam(teamCode = "A", difficulty = this.botDifficulty) {
-    let slot = this.slots.find(s => s.teamCode === teamCode && s.playerType === "empty");
-    if (!slot) {
-      slot = this.slots.find(s => s.teamCode === teamCode && s.playerType === "bot");
-    }
-    if (!slot) {
-      slot = this.slots.find(s => s.teamCode === teamCode && s.slotId !== "A1");
-    }
+    // only a vacant seat: never replaces a human or another BOT
+    const slot = this.slots.find(s => s.teamCode === teamCode && s.playerType === "empty");
     if (slot) {
       return this.addBot(slot.slotId, difficulty);
     }
@@ -388,13 +349,20 @@ export class MatchManager {
 
   // Kiểm tra điều kiện có thể bắt đầu trận đấu
   canStart() {
-    const teamAActive = this.slots.filter(s => s.teamCode === "A" && s.playerType !== "empty");
-    const teamBActive = this.slots.filter(s => s.teamCode === "B" && s.playerType !== "empty");
+    // Every seat of the chosen mode (2 for singles, 4 for doubles) holds a human or a BOT, and at least one human is present.
+    const need = this.matchType === "singles" ? 2 : 4;
+    return this.slots.length === need &&
+      this.slots.every(s => s.playerType === "human" || s.playerType === "bot") &&
+      this.slots.some(s => s.playerType === "human");
+  }
 
-    if (this.matchType === "singles") {
-      return teamAActive.length >= 1 && teamBActive.length >= 1;
-    }
-    return teamAActive.length >= 1 && teamBActive.length >= 1 && (teamAActive.length + teamBActive.length >= 2);
+  // Human-readable reason the start button is disabled ("" when the match can start)
+  startBlockedReason() {
+    if (this.canStart()) return "";
+    const n = this.slots.filter(s => s.playerType === "empty").length;
+    return n
+      ? `Còn ${n} chỗ trống: chờ bạn bè vào, hoặc bấm “🤖 + Máy” ở chỗ trống để thêm máy.`
+      : "Chưa đủ người để bắt đầu.";
   }
 
   // Trả về cấu hình cho từng Actor trong Game Engine

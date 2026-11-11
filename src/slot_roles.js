@@ -18,7 +18,11 @@ export const teamOfSlot = (slotId) => (String(slotId || "")[0] === "B" ? "B" : "
 // Returns the slot id the swing must be applied to, or null to keep the old
 // "closest teammate" behaviour. A swing is pinned to its own actor when the seat is a partner
 // seat (A2/B2) or when the teammate seat is also a human (so two humans never steal each other's ball).
-export function forceActorFor(slots, slotId) {
+export const seatsFor = (matchType) => (matchType === "singles" ? ["A1", "B1"] : ["A1", "A2", "B1", "B2"]);
+export const isSeatValid = (matchType, slotId) => seatsFor(matchType).includes(slotId);
+
+export function forceActorFor(slots, slotId, matchType) {
+  if (matchType === "singles") return null;      // 1-1: there is no partner, nobody is pinned
   if (!MATE[slotId]) return null;
   if (slotId === "A2" || slotId === "B2") return slotId;
   const mate = MATE[slotId];
@@ -28,3 +32,5 @@ export function forceActorFor(slots, slotId) {
 
 // During serve only the serving seats (A1/B1) may start the toss/hit.
 export const isServeBlocked = (phase, slotId) => /^SERVE/.test(String(phase || "")) && slotId !== "A1" && slotId !== "B1";
+// A seat that does not exist in the current mode (A2/B2 in 1-1) can neither serve nor swing.
+export const canControlSeat = (matchType, phase, slotId) => isSeatValid(matchType, slotId) && !isServeBlocked(phase, slotId);

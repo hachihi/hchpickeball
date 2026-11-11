@@ -11,7 +11,7 @@ const I18N = {
     rulesModalTitle: "📖 Luật Chơi Cơ Bản Cho Người Mới",
     rulesModalSubtitle: "5 quy tắc cốt lõi chuẩn quốc tế được áp dụng trực tiếp trong game",
     rulesCloseBtn: "Đã hiểu • Vào sân thi đấu!",
-    startMatch: "Bắt đầu trận đấu",
+    startMatch: "Chơi ngay",
     casualAi: "Người mới",
     proAi: "Chuyên nghiệp",
     match1v1: "Đấu 1v1",
@@ -42,7 +42,7 @@ const I18N = {
     rulesModalTitle: "📖 Basic Pickleball Rules for Beginners",
     rulesModalSubtitle: "5 core official rules enforced directly inside the game",
     rulesCloseBtn: "Got it • Back to Court!",
-    startMatch: "Start Match",
+    startMatch: "Play now",
     casualAi: "Casual AI",
     proAi: "Pro AI",
     match1v1: "1v1 Match",
@@ -139,6 +139,7 @@ export class HudUI {
     this._lastRoomStatus = {};
     this.primaryPlayChoice = "solo";
     this.selectedFormat = "doubles";
+    this.multiFormat = "doubles";   // 1-1 / 2-2 chosen when CREATING an online room (independent from the solo choice)
     this._lobbyPollTimer = null;
     this._matchStartedLocally = false;
     this.selectedScenery = "landmark81";
@@ -374,6 +375,15 @@ export class HudUI {
     btnChoiceSolo && btnChoiceSolo.addEventListener("click", () => selectPrimaryChoice("solo"));
     btnChoiceMulti && btnChoiceMulti.addEventListener("click", () => selectPrimaryChoice("multi"));
 
+    // Online room format: 1-1 (2 seats) or 2-2 (4 seats), chosen before the room is created
+    const multiFmtBtns = document.querySelectorAll("#multi-format-group .multi-format-choice");
+    multiFmtBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        multiFmtBtns.forEach(b => { b.classList.toggle("selected", b === btn); b.setAttribute("aria-pressed", String(b === btn)); });
+        this.multiFormat = btn.dataset.format === "singles" ? "singles" : "doubles";
+      });
+    });
+
     const btnBackToSolo = document.getElementById("btn-back-to-solo");
     btnBackToSolo && btnBackToSolo.addEventListener("click", () => selectPrimaryChoice("solo"));
 
@@ -431,7 +441,7 @@ export class HudUI {
         this.matchManager.isHost = true;
         this.matchManager.hostName = this.playerName;
         this.matchManager.localPlayerSlot = "A1";
-        this.matchManager.initRoomLobbySlots(this.playerName);
+        this.matchManager.initRoomLobbySlots(this.playerName, this.multiFormat);
 
         // Hiển thị trực tiếp bảng tạo phòng ngay lập tức không để người dùng chờ
         if (this._lockedRoomId) this._leaveCurrentRoom();   // old room is closed (guests are told) before a new one is created
@@ -447,7 +457,7 @@ export class HudUI {
             body: JSON.stringify({
               p1Name: this.playerName,
               hostName: this.playerName,
-              matchType: this.selectedFormat || "doubles"
+              matchType: this.multiFormat || "doubles"
             })
           });
           if (res.ok) {
@@ -1750,7 +1760,7 @@ export class HudUI {
       if (condBanner) {
         condBanner.className = "tank-condition-banner warn";
         if (condIcon) condIcon.textContent = "⚠️";
-        if (condText) condText.textContent = "Chế độ đối kháng yêu cầu ít nhất 2 người hoặc thêm Máy (Bot) để bắt đầu!";
+        if (condText) condText.textContent = this.matchManager.startBlockedReason ? this.matchManager.startBlockedReason() : "Chưa đủ vị trí để bắt đầu.";
       }
       if (btnStart) {
         btnStart.disabled = true;
@@ -2155,7 +2165,7 @@ export class HudUI {
         this.elScoreOpponent.textContent = n;
       }
       if (this.elScoreServerBadge) {
-        this.elScoreServerBadge.textContent = `S${sNum || 2}`;
+        this.elScoreServerBadge.textContent = this.currentLang === "en" ? `Server #${sNum || 2}` : `Giao #${sNum || 2}`;
       }
       this.configureGameBubbles(s);
       this.elGamesPlayer &&
@@ -2190,7 +2200,7 @@ export class HudUI {
     const label = document.getElementById("server-tag-text");
     if (label) {
       const prefix = this.currentLang === "vi" ? "Giao bóng" : "Server";
-      label.textContent = `${prefix} (S${serverNumber || 2})`;
+      label.textContent = this.currentLang === "vi" ? `${prefix} · số ${serverNumber || 2}` : `${prefix} · #${serverNumber || 2}`;
     }
   }
 
