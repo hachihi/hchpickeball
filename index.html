@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="./mobile.css" />
   <link rel="stylesheet" href="./phase1.css" />
   <link rel="stylesheet" href="./phase2.css" />
+  <link rel="stylesheet" href="./phase3.css" />
 </head>
 <body>
   <div id="root" class="hidden" aria-hidden="true"></div>
@@ -59,7 +60,7 @@
           <span id="score-player-text" class="score-digits">00</span>
           <span id="score-separator" class="score-dash">-</span>
           <span id="score-opponent-text" class="score-digits">00</span>
-          <span id="score-server-badge" class="server-badge" title="Lượt giao bóng">S2</span>
+          <span id="score-server-badge" class="server-badge" title="Lượt giao bóng: người giao số 1 hoặc số 2 của đội">Giao #2</span>
         </div>
 
         <div class="mii-side mii-side-opponent">
@@ -191,6 +192,7 @@
           <button id="btn-lang-toggle" class="hud-mini-btn lang-toggle-btn" type="button" title="Chuyển đổi Tiếng Việt / English"><span>🇻🇳 VI</span></button>
           <button id="btn-scenery-cycle" class="hud-mini-btn scenery-hud-btn" type="button" title="Đổi Sân Đấu Kỳ Quan (Landmark 81, Eiffel, Big Ben, Nha Trang...)"><span>🏟️</span><span id="scenery-label-hud">Landmark 81</span></button>
           <button id="btn-portal-hud" class="hud-mini-btn portal-hud-btn" type="button" title="Khám phá Giải Đấu Hachihi Open 2026"><span>🏆</span><span id="btn-portal-hud-text">Hachihi Open</span></button>
+          <button id="btn-coach-hud" class="hud-mini-btn coach-hud-btn" type="button" title="Hướng dẫn nhanh cách chơi"><span>❓</span><span id="btn-coach-hud-text">Hướng dẫn nhanh</span></button>
           <button id="btn-rules-hud" class="hud-mini-btn rules-hud-btn" type="button" title="Xem sổ tay luật chơi Pickleball"><span>📋</span><span id="btn-rules-hud-text">Luật chơi</span></button>
           <button id="btn-settings-hud" class="hud-mini-btn settings-hud-btn" type="button" title="Cài đặt Phím, Âm thanh & Ánh sáng"><span>⚙️</span><span id="btn-settings-hud-text">Cài đặt</span></button>
           <button id="btn-audio-toggle" class="hud-mini-btn" type="button" title="Toggle Lyria 3 Soundtrack & SFX"><span class="btn-dot music-on" id="audio-status-dot"></span><span id="audio-track-label">Lyria: Sunny Rally</span></button>
@@ -535,7 +537,7 @@
 
         <div class="wii-modal-actions title-actions-stack">
           <button id="btn-start-match" type="button" class="btn-hero-cta-lime">
-            <span class="hand-cursor-icon">🏓</span><span id="btn-start-match-text">VÀO SÂN THI ĐẤU NGAY ↗</span>
+            <span class="hand-cursor-icon">🏓</span><span id="btn-start-match-text">CHƠI NGAY</span>
           </button>
           
           <div class="hero-sub-actions">
@@ -562,10 +564,10 @@
             <label class="setup-label">Chọn thể thức phòng:</label>
             <div class="wii-green-btn-row format-btn-row" id="multi-format-group" role="group" aria-label="Thể thức phòng">
               <button type="button" class="wii-green-choice multi-format-choice" data-format="singles" aria-pressed="false">
-                <span class="choice-main">👤 Đấu 1 - 1 (2 vị trí: A1 · B1)</span>
+                <span class="choice-main">👤 Đấu đơn 1 - 1 (2 người)</span>
               </button>
               <button type="button" class="wii-green-choice multi-format-choice selected" data-format="doubles" aria-pressed="true">
-                <span class="choice-main">👥 Đấu 2 - 2 (4 vị trí: A1 A2 · B1 B2)</span>
+                <span class="choice-main">👥 Đấu đôi 2 - 2 (4 người)</span>
               </button>
             </div>
             <p class="multi-format-note">Phòng chỉ có chủ phòng. Chủ phòng tự thêm BOT vào vị trí còn trống — game không tự thêm.</p>
@@ -1686,6 +1688,7 @@
   </script>
   <script type="module" src="./src/session_client.js"></script>
   <script type="module" src="./src/mobile_ux.js"></script>
+  <script type="module" src="./src/first_run_coach.js"></script>
   <script type="module" src="./src/hud_menu.js"></script>
   <script type="module" src="./src/hud_sound.js"></script>
   <script type="module" src="./src/match_lock.js"></script>
