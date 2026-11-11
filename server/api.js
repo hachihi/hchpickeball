@@ -6,6 +6,8 @@ export const DEFAULT_ROOM_ID = "10150";
 export const ROLE_BY_SLOT = { A1: "p1", B1: "p2", A2: "p3", B2: "p4" };
 const RACKET_ROLES = ["p1", "p2", "p3", "p4"];
 const MAX_LISTENERS_PER_ROOM = 16;
+const BOT_LEVELS = new Set(["easy", "normal", "hard", "casual", "pro", "1", "2", "3"]);
+const botLevel = (v, fallback = "normal") => (BOT_LEVELS.has(String(v || "").toLowerCase()) ? String(v).toLowerCase() : fallback);
 
 const num = (v, d) => (v === undefined || v === null || v === "" || Number.isNaN(Number(v)) ? d : Number(v));
 
@@ -102,6 +104,16 @@ export function createApi(opts = {}) {
     return room.slots.find((x) => x.slotId === s.slotId) || null;
   }
 
+  // Rule: the game never adds a BOT on its own. A seat that is vacated BEFORE the match starts goes back to "empty"
+  // so the host decides. (Only a human who drops out DURING a running match is replaced - see sweep()/leave.)
+  function toEmpty(room, slot, reason) {
+    const name = slot.playerName;
+    slot.playerType = "empty"; slot.playerId = null; slot.botId = null; slot.botDifficulty = null;
+    slot.playerName = `Vị trí ${slot.slotId} (Đang chờ...)`; slot.status = "waiting";
+    room.messages.push(sysMsg(`${name} ${reason} Vị trí ${slot.slotId} đang trống.`, "msg_leave"));
+  }
+  function vacate(room, slot, reason) { return room.started ? toBot(room, slot, reason) : toEmpty(room, slot, reason); }
+
   function toBot(room, slot, reason) {
     const name = slot.playerName;
     slot.playerType = "bot";
@@ -137,7 +149,7 @@ export function createApi(opts = {}) {
       if (!s.slotId || s.isHost) continue;
       if (now - s.lastSeen <= graceMs) continue;
       const slot = room.slots.find((x) => x.slotId === s.slotId);
-      if (slot && slot.playerType === "human") toBot(room, slot, "mất kết nối quá lâu.");
+      if (slot && slot.playerType === "human") vacate(room, slot, "mất kết nối quá lâu.");
       s.preferredSlot = s.slotId;
       s.slotId = null;
     }
@@ -171,11 +183,13 @@ export function createApi(opts = {}) {
   }
 
   // Same rule as src/match_manager.js canStart().
+  // Same rule as src/match_manager.js canStart(): EVERY seat (2 for singles, 4 for doubles) must hold a human or a
+  // BOT that the host chose, and at least one human (the host) is present. Nothing is auto-filled.
   function canStart(room) {
-    const a = room.slots.filter((s) => s.teamCode === "A" && s.playerType !== "empty").length;
-    const b = room.slots.filter((s) => s.teamCode === "B" && s.playerType !== "empty").length;
-    if (room.matchType === "singles") return a >= 1 && b >= 1;
-    return a >= 1 && b >= 1 && a + b >= 2;
+    const need = room.matchType === "singles" ? 2 : 4;
+    return room.slots.length === need &&
+      room.slots.every((s) => s.playerType === "human" || s.playerType === "bot") &&
+      room.slots.some((s) => s.playerType === "human");
   }
 
   function racketSummary(r) {
@@ -344,12 +358,14 @@ export function createApi(opts = {}) {
           }
         }
         if (sess && sess.isHost) return deny("HOST_ALREADY_SEATED");
-        const free = (s) => s.playerType === "empty" || s.playerType === "bot";
+        if (room.started) return err(409, "ALREADY_STARTED", { roomId: room.roomId });
+        // A guest can only take an EMPTY seat. BOT seats belong to the host (he removes the BOT first) and human seats to their owner.
+        const free = (s) => s.playerType === "empty";
         let slot = null;
         const want = body.slotId || (sess && sess.preferredSlot);
         const hostSeat = hostSlotId(room);
         if (want) slot = room.slots.find((s) => s.slotId === want && free(s) && s.slotId !== hostSeat) || null;
-        if (!slot) slot = room.slots.find((s) => s.playerType === "empty" && s.slotId !== hostSeat) || room.slots.find((s) => s.playerType === "bot" && s.slotId !== hostSeat);
+        if (!slot) slot = room.slots.find((s) => free(s) && s.slotId !== hostSeat) || null;
         if (!slot) return err(409, "ROOM_FULL", { roomId: room.roomId });
         const t = sess ? token : newToken();
         slot.playerType = "human";
@@ -376,7 +392,7 @@ export function createApi(opts = {}) {
         if (!target && !sess) return err(401, "SESSION_REQUIRED");
         if (target && target.slotId !== hostSlotId(room) && target.playerType === "human") {
           for (const s of room.sessions.values()) if (s.slotId === target.slotId) { s.preferredSlot = target.slotId; s.slotId = null; }
-          toBot(room, target, "đã rời phòng.");
+          vacate(room, target, "đã rời phòng.");
         }
         return ok({ roomId: room.roomId, slots: room.slots });
       }
@@ -425,7 +441,7 @@ export function createApi(opts = {}) {
           if (body.color) room[`team${body.teamCode}Color`] = String(body.color).slice(0, 16);
         }
         if (body.botDifficulty) {
-          room.botDifficulty = String(body.botDifficulty);
+          room.botDifficulty = botLevel(body.botDifficulty, room.botDifficulty || "normal");
           for (const sl of room.slots) if (sl.playerType === "bot") sl.botDifficulty = room.botDifficulty;
         }
         if (body.scenery && !room.started) room.scenery = String(body.scenery); // khóa sân khi trận đã bắt đầu
@@ -438,8 +454,16 @@ export function createApi(opts = {}) {
           const keep = new Map(room.slots.map((s) => [s.slotId, s]));
           room.slots = fresh.map((f) => (keep.has(f.slotId) ? keep.get(f.slotId) : f));
           const ids = new Set(room.slots.map((s) => s.slotId));
-          for (const s of room.sessions.values()) if (s.slotId && !ids.has(s.slotId)) { s.preferredSlot = s.slotId; s.slotId = null; }
           room.matchType = body.matchType;
+          // a human whose seat disappeared (2-2 -> 1-1) moves to a free remaining seat if there is one; BOTs there are dropped
+          for (const s of room.sessions.values()) {
+            if (!s.slotId || ids.has(s.slotId)) continue;
+            const old = keep.get(s.slotId);
+            const dest = room.slots.find((x) => x.playerType === "empty" && x.slotId !== hostSlotId(room));
+            if (old && dest && old.playerType === "human") { Object.assign(dest, { playerType: "human", playerId: old.playerId, playerName: old.playerName, botId: null, botDifficulty: null, status: "ready" }); s.slotId = dest.slotId; s.preferredSlot = dest.slotId; }
+            else { s.preferredSlot = s.slotId; s.slotId = null; }
+          }
+          room.messages.push(sysMsg(`Chủ phòng đổi sang chế độ ${body.matchType === "singles" ? "1–1 (Đơn)" : "2–2 (Đôi)"}.`, "msg_mode"));
         }
         return ok({ roomId: room.roomId, teamAName: room.teamAName, teamBName: room.teamBName,
           teamAColor: room.teamAColor, teamBColor: room.teamBColor, matchType: room.matchType,
@@ -456,15 +480,25 @@ export function createApi(opts = {}) {
             if (slot.slotId === hostSlotId(room)) room.hostName = slot.playerName;
           }
           if (isHost) {   // only the host may add/remove bots or change seat state
+            const hostSeat = hostSlotId(room);
             if (body.playerType) {
-              if (slot.playerType === "human" && slot.slotId !== hostSlotId(room) && body.playerType !== "human") {
-                for (const s of room.sessions.values()) if (s.slotId === slot.slotId) { s.preferredSlot = slot.slotId; s.slotId = null; }
+              if (room.started) return err(409, "ALREADY_STARTED");
+              const t = String(body.playerType);
+              if (t !== "bot" && t !== "empty") return err(400, "BAD_PLAYER_TYPE");
+              if (slot.slotId !== hostSeat) {
+                if (slot.playerType === "human") for (const s of room.sessions.values()) if (s.slotId === slot.slotId) { s.preferredSlot = slot.slotId; s.slotId = null; }
+                if (t === "bot") {
+                  slot.playerType = "bot"; slot.playerId = null; slot.botId = `BOT_${slot.slotId}`; slot.status = "ready";
+                  slot.playerName = String(body.botName || (slot.teamCode === "A" ? "Maya (AI)" : "Matt (AI)")).slice(0, 16);
+                  slot.botDifficulty = botLevel(body.botDifficulty, room.botDifficulty || "normal");
+                } else {
+                  slot.playerType = "empty"; slot.playerId = null; slot.botId = null; slot.botDifficulty = null;
+                  slot.playerName = `Vị trí ${slot.slotId} (Đang chờ...)`; slot.status = "waiting";
+                }
               }
-              if (slot.slotId !== hostSlotId(room)) slot.playerType = String(body.playerType);
+            } else if (body.botDifficulty && slot.playerType === "bot") {
+              slot.botDifficulty = botLevel(body.botDifficulty, slot.botDifficulty || "normal");
             }
-            if (body.botDifficulty) slot.botDifficulty = String(body.botDifficulty);
-            if (body.botId) slot.botId = String(body.botId);
-            if (body.status) slot.status = String(body.status);
           }
         }
         return ok({ roomId: room.roomId, slots: room.slots });
@@ -472,6 +506,7 @@ export function createApi(opts = {}) {
 
       if (pathname === "/api/match/slot/switch-team" || pathname === "/api/match/slot/move") {
         const m = needMember(); if (m) return m;
+        if (room.started) return err(409, "ALREADY_STARTED");
         const fromId = body.fromSlotId || body.slotId;
         const from = room.slots.find((s) => s.slotId === fromId);
         if (from) {
@@ -482,14 +517,12 @@ export function createApi(opts = {}) {
           let to = body.toSlotId ? room.slots.find((s) => s.slotId === body.toSlotId) : null;
           if (!to) {
             const pool = wantTeam ? room.slots.filter((s) => s.teamCode === wantTeam && s.slotId !== from.slotId) : [];
-            to = pool.find((s) => s.playerType === "empty") || pool.find((s) => s.playerType === "bot") ||
-                 (isMove ? pool[0] : null) || null;
+            to = pool.find((s) => s.playerType === "empty") || (isHost ? (pool.find((s) => s.playerType === "bot") || (isMove ? pool[0] : null)) : null) || null;
           }
           if (to && to.slotId !== from.slotId) {
             // never let a guest push a human out of a seat; host may swap anything except it keeps A1 host
             if (to.slotId === hostSlotId(room)) return deny("HOST_SEAT_LOCKED");
-            const movingHuman = to.playerType === "human";
-            if (!isHost && movingHuman) return deny();
+            if (!isHost && to.playerType !== "empty") return deny();   // a guest never takes a BOT seat or another player's seat
             const fromId = from.slotId, toId = to.slotId;
             const who = from.playerName || "Người chơi";
             swapSlots(from, to);
