@@ -83,11 +83,11 @@ try {
   const again = (await post("/api/match/slot/join", { room: r2.roomId, playerName: "A" }, a.sessionToken)).j;
   ok(again.assignedSlot === a.assignedSlot && again.rejoined, "join with same session returns same seat (no seat leak)");
   const lv = (await post("/api/match/leave", { room: r2.roomId }, a.sessionToken)).j;
-  ok(slot(lv, a.assignedSlot).playerType === "bot", "leave turns own seat into BOT");
+  ok(slot(lv, a.assignedSlot).playerType === "empty", "leave BEFORE start frees own seat (game never adds a BOT by itself)");
   const back = (await post("/api/match/slot/join", { room: r2.roomId, playerName: "A" }, a.sessionToken)).j;
   ok(back.assignedSlot === a.assignedSlot, "rejoin with same session reclaims the old seat");
   ok((await post("/api/match/leave", { room: r2.roomId, slotId: b.assignedSlot }, a.sessionToken)).j.slots.find((s) => s.slotId === b.assignedSlot).playerType === "human", "guest cannot kick another player");
-  ok(slot((await post("/api/match/leave", { room: r2.roomId, slotId: b.assignedSlot }, r2.sessionToken)).j, b.assignedSlot).playerType === "bot", "host can remove a seat");
+  ok(slot((await post("/api/match/leave", { room: r2.roomId, slotId: b.assignedSlot }, r2.sessionToken)).j, b.assignedSlot).playerType === "empty", "host can remove a seat (seat becomes empty before start)");
 
   // ---- disconnect grace ----
   const r3 = (await post("/api/match/create", { p1Name: "H4" })).j;
@@ -101,7 +101,7 @@ try {
   await sleep(GRACE * 0.7);
   await get(`/api/match/state?room=${r3.roomId}`, d1.sessionToken);
   s = (await get(`/api/match/state?room=${r3.roomId}`, d1.sessionToken)).j;
-  ok(slot(s, d2.assignedSlot).playerType === "bot", "silent guest is replaced by BOT after grace");
+  ok(slot(s, d2.assignedSlot).playerType === "empty", "silent guest frees the seat after grace (match not started yet)");
   ok(slot(s, d1.assignedSlot).playerType === "human", "polling guest keeps seat");
   ok(slot(s, "A1").playerType === "human", "host is never replaced");
   const d2b = (await post("/api/match/slot/join", { room: r3.roomId, playerName: "Drop" }, d2.sessionToken)).j;

@@ -37,6 +37,8 @@ try {
   ok(st.started === false, "room not started before host presses start");
   const other = await get("/api/match/state?room=default");
   ok(other.started === false && other.roomId !== room, "'default' room is separate");
+  // Luật mới: game KHÔNG tự thêm BOT. Chủ phòng tự lấp hết ghế trống rồi mới bắt đầu.
+  for (const sid of ["A2", "B2"]) await post("/api/match/slot/update", { room, slotId: sid, playerType: "bot" });
   const s1 = await post("/api/match/start", { room });
   ok(s1.ok, "start accepted");
   st = await get(`/api/match/state?room=${room}`);
